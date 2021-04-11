@@ -1,54 +1,68 @@
 #pragma once
 
 #include <vector>
-#include <cstring>
+#include <string>
 #include <utility>
 #include <cstddef>
 
 namespace lab_fs {
 
-class ldisk {
-public:
-    ldisk(std::size_t blocks_no, std::size_t block_size, std::vector<std::vector<std::byte>>&& data);
+    class ldisk {
+    public:
+        ldisk(std::size_t blocks_no, std::size_t block_size, std::vector<std::vector<std::byte>> &&data);
 
-    void read_block(std::size_t i, std::vector<std::byte>::iterator dest);
-    void write_block(std::size_t i, std::vector<std::byte>::iterator src);
+        void read_block(std::size_t i, std::vector<std::byte>::iterator dest);
 
-    [[nodiscard]] std::size_t get_blocks_no() const;
-    [[nodiscard]] std::size_t get_block_size() const;
+        void write_block(std::size_t i, std::vector<std::byte>::iterator src);
 
-private:
-    std::size_t blocks_no;
-    std::size_t block_size;
+        [[nodiscard]] std::size_t get_blocks_no() const;
 
-    std::vector<std::vector<std::byte>> data;
-};
+        [[nodiscard]] std::size_t get_block_size() const;
 
-class oft_entry {
-public:
-    oft_entry(std::size_t descriptor_index);
+    private:
+        std::size_t blocks_no;
+        std::size_t block_size;
 
-    [[nodiscard]] std::size_t get_descriptor_index();
+        std::vector<std::vector<std::byte>> data;
+    };
 
-    std::vector<std::byte> buffer; //TODO: think on public access to buffer and manually setting modified
-    std::size_t current_pos;
-    bool modified;
-private:
-    std::size_t descriptor_index;
-};
+    class oft_entry {
+    public:
+        oft_entry(std::size_t descriptor_index);
 
-class file_system {
-private:
-    std::string filename;
-    ldisk disk;
-    std::vector<bool> available_blocks;
-    std::vector<oft_entry> oft; //limit size with some const value?
+        [[nodiscard]] std::size_t get_descriptor_index() const;
 
-public:
-    //Write here create, destroy, open, close, read, write, seek, directory...
-};
+        std::vector<std::byte> buffer; //todo: think on public access to buffer and manually setting modified
+        std::size_t current_pos;
+        bool modified;
+    private:
+        std::size_t descriptor_index;
+    };
 
-file_system* init(std::string filename); //mb change return type to std::pair<file_system*, INIT_RESULT>
-void save(file_system* fs);
+    class file_system {
+    private:
+        std::string filename;
+        ldisk disk;
+        std::vector<bool> available_blocks;
+        std::vector<oft_entry> oft; //todo: limit size with some const value?
+
+    public:
+        file_system(std::string filename, ldisk &&disk);
+
+        //todo: Declare here create, destroy, open, close, read, write, seek, directory...
+
+        void save();
+    };
+
+    enum init_result {
+        CREATED, RESTORED, FAILED
+    };
+
+    std::pair<file_system *, init_result> init(std::size_t cylinders_no,
+                                               std::size_t surfaces_no,
+                                               std::size_t sections_no,
+                                               std::size_t section_length,
+                                               std::string filename);
+
 
 } //namespace lab_fs
