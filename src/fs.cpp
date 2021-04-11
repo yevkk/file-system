@@ -10,7 +10,7 @@ namespace lab_fs {
 
     void ldisk::read_block(std::size_t i, std::vector<std::byte>::iterator dest) {
         assert(i < blocks_no);
-        std::copy(data[i].begin(), data[i].end(), dest);
+        std::copy(data[i].cbegin(), data[i].cend(), dest);
     }
 
     void ldisk::write_block(std::size_t i, std::vector<std::byte>::iterator src) {
@@ -25,4 +25,14 @@ namespace lab_fs {
     std::size_t ldisk::get_block_size() const {
         return block_size;
     }
+
+    oft_entry::oft_entry(std::size_t descriptor_index) :
+        descriptor_index{descriptor_index},
+        current_pos{0},
+        modified{false} {}
+
+    std::size_t oft_entry::get_descriptor_index() {
+        return descriptor_index;
+    }
+
 } //namespace lab_fs

@@ -1,6 +1,6 @@
 #pragma once
 
-#include<vector>
+#include <vector>
 #include <cstddef>
 
 namespace lab_fs {
@@ -20,6 +20,19 @@ private:
     std::size_t block_size;
 
     std::vector<std::vector<std::byte>> data;
+};
+
+class oft_entry {
+public:
+    oft_entry(std::size_t descriptor_index);
+
+    [[nodiscard]] std::size_t get_descriptor_index();
+
+    std::vector<std::byte> buffer; //TODO: think on public access to buffer and manually setting modified
+    std::size_t current_pos;
+    bool modified;
+private:
+    std::size_t descriptor_index;
 };
 
 } //namespace lab_fs
