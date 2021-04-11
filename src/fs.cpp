@@ -28,12 +28,12 @@ namespace lab_fs {
         return block_size;
     }
 
-    oft_entry::oft_entry(std::size_t descriptor_index) :
+    file_system::oft_entry::oft_entry(std::size_t descriptor_index) :
             descriptor_index{descriptor_index},
             current_pos{0},
             modified{false} {}
 
-    std::size_t oft_entry::get_descriptor_index() const {
+    std::size_t  file_system::oft_entry::get_descriptor_index() const {
         return descriptor_index;
     }
 
