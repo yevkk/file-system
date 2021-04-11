@@ -63,7 +63,7 @@ namespace lab_fs {
                                                std::size_t surfaces_no,
                                                std::size_t sections_no,
                                                std::size_t section_length,
-                                               std::string filename);
+                                               const std::string &filename);
 
 
 } //namespace lab_fs
