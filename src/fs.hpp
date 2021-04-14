@@ -1,6 +1,8 @@
 #pragma once
 
 #include <vector>
+#include <array>
+#include <map>
 #include <string>
 #include <utility>
 #include <cstddef>
@@ -28,24 +30,35 @@ namespace lab_fs {
 
     class file_system {
     private:
+        class file_descriptor {
+        public:
+            file_descriptor(std::size_t length, std::initializer_list<std::size_t> occupied_blocks);
+
+            std::size_t length;
+            std::array<std::size_t, 3> occupied_blocks;
+        };
+
         class oft_entry {
         public:
-            explicit oft_entry(std::size_t descriptor_index);
+            oft_entry(std::string filename, std::size_t descriptor_index);
 
             [[nodiscard]] std::size_t get_descriptor_index() const;
+            [[nodiscard]] std::string get_filename() const;
 
             std::vector<std::byte> buffer;
             std::size_t current_pos;
             bool modified;
-            //todo: hold descriptors?
         private:
             std::size_t descriptor_index;
+            std::string filename;
         };
 
         std::string filename;
         io disk_io;
         std::vector<bool> available_blocks;
-        std::vector<oft_entry> oft;
+        std::vector<oft_entry *> oft;
+        std::map<std::size_t, file_descriptor *> descriptors_map;
+        std::map<std::string, std::size_t> descriptor_indexes_map;
 
         static constexpr std::size_t oft_max_size = 16;
 

@@ -29,7 +29,23 @@ namespace lab_fs {
         return block_size;
     }
 
-    file_system::oft_entry::oft_entry(std::size_t descriptor_index) :
+    file_system::file_descriptor::file_descriptor(std::size_t length,
+                                                  std::initializer_list<std::size_t> occupied_blocks_il) :
+            length{length},
+            occupied_blocks{} {
+        assert(occupied_blocks_il.size() > 3 && "Too much arguments provided");
+        std::size_t i = 0;
+        for (auto it : occupied_blocks_il) {
+            occupied_blocks[i] = it;
+            i++;
+        }
+        for (; i < occupied_blocks.size(); i++) {
+            occupied_blocks[i] = 0;
+        }
+    }
+
+    file_system::oft_entry::oft_entry(std::string filename, std::size_t descriptor_index) :
+            filename{std::move(filename)},
             descriptor_index{descriptor_index},
             current_pos{0},
             modified{false} {}
@@ -38,18 +54,27 @@ namespace lab_fs {
         return descriptor_index;
     }
 
+    std::string file_system::oft_entry::get_filename() const {
+        return filename;
+    }
+
     file_system::file_system(std::string filename, io &&disk_io) :
             filename{std::move(filename)},
             disk_io{disk_io},
             available_blocks(disk_io.get_blocks_no()) {
-        std::vector<std::byte> bitmap_block(disk_io.get_block_size());
-        disk_io.read_block(0, bitmap_block.begin());
+        std::vector<std::byte> buffer(disk_io.get_block_size());
 
+        disk_io.read_block(0, buffer.begin());
         for (std::size_t i = 0; i < available_blocks.size(); i++) {
-            available_blocks[i] = (bool)((bitmap_block[i / 8] >> (7 - (i % 8))) & std::byte{1});
+            available_blocks[i] = (bool) ((buffer[i / 8] >> (7 - (i % 8))) & std::byte{1});
         }
 
-        oft.emplace_back(0);
+        oft.push_back(new oft_entry{0});
+        disk_io.read_block(1, buffer.begin());
+        auto to_size_t = [](std::byte byte) { return std::to_integer<std::size_t>(byte); };
+        descriptors_map[0] = new file_descriptor(to_size_t(buffer[0]) * 256 + to_size_t(buffer[1]),
+                                                 {to_size_t(buffer[2]), to_size_t(buffer[3]), to_size_t(buffer[4])}
+        );
     }
 
     void file_system::save() {
@@ -69,7 +94,7 @@ namespace lab_fs {
         }
         bitmap_block.resize(disk_io.get_block_size(), std::byte{0});
 
-        //todo: for every opened and modified file call save???
+        //todo: for every opened and modified file call save?
 
         file.write(reinterpret_cast<char *>(bitmap_block.data()), disk_io.get_block_size());
         std::vector<std::byte> block(disk_io.get_block_size());
