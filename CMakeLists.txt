@@ -8,12 +8,13 @@ set(SRC_DIR ${TOP_DIR}/src)
 
 include_directories(${SRC_DIR})
 
-#set(SRC_LIST
-#        ${SRC_DIR}/filename
-#        )
+set(SRC_LIST
+        ${SRC_DIR}/fs.hpp
+        ${SRC_DIR}/fs.cpp
+        )
 
-#set(LIB_NAME ${PROJECT_NAME}_core)
-#add_library(${LIB_NAME} STATIC ${SRC_LIST})
+set(LIB_NAME ${PROJECT_NAME}_core)
+add_library(${LIB_NAME} STATIC ${SRC_LIST})
 
 add_executable(file_system main.cpp)
-#target_link_libraries(file_system PRIVATE ${LIB_NAME})
+target_link_libraries(file_system PRIVATE ${LIB_NAME})
