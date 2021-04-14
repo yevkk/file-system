@@ -7,9 +7,9 @@
 
 namespace lab_fs {
 
-    class ldisk {
+    class io {
     public:
-        ldisk(std::size_t blocks_no, std::size_t block_size, std::vector<std::vector<std::byte>> &&data);
+        io(std::size_t blocks_no, std::size_t block_size, std::vector<std::vector<std::byte>> &&disk);
 
         void read_block(std::size_t i, std::vector<std::byte>::iterator dest);
 
@@ -23,7 +23,7 @@ namespace lab_fs {
         std::size_t blocks_no;
         std::size_t block_size;
 
-        std::vector<std::vector<std::byte>> data;
+        std::vector<std::vector<std::byte>> ldisk;
     };
 
     class file_system {
@@ -37,18 +37,20 @@ namespace lab_fs {
             std::vector<std::byte> buffer;
             std::size_t current_pos;
             bool modified;
+            //todo: hold descriptors?
         private:
             std::size_t descriptor_index;
         };
 
-        //todo: caching directory descriptor?
         std::string filename;
-        ldisk disk;
+        io disk_io;
         std::vector<bool> available_blocks;
-        std::vector<oft_entry> oft; //todo: limit size with some const value?
+        std::vector<oft_entry> oft;
+
+        static constexpr std::size_t oft_max_size = 16;
 
     public:
-        file_system(std::string filename, ldisk &&disk);
+        file_system(std::string filename, io &&disk_io);
 
         //todo: Declare here create, destroy, open, close, read, write, seek, directory...
 
