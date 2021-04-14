@@ -69,7 +69,7 @@ namespace lab_fs {
             available_blocks[i] = (bool) ((buffer[i / 8] >> (7 - (i % 8))) & std::byte{1});
         }
 
-        oft.push_back(new oft_entry{0});
+        oft.push_back(new oft_entry{"", 0});
         disk_io.read_block(1, buffer.begin());
         auto to_size_t = [](std::byte byte) { return std::to_integer<std::size_t>(byte); };
         descriptors_map[0] = new file_descriptor(to_size_t(buffer[0]) * 256 + to_size_t(buffer[1]),
