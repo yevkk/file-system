@@ -62,6 +62,11 @@ namespace lab_fs {
 
         static constexpr std::size_t oft_max_size = 16;
 
+
+        file_descriptor *get_descriptor(std::size_t i); //todo: implement
+        void *write_descriptor(std::size_t i, file_descriptor *descriptor); //todo: implement
+        void *remove_dir_entry(std::size_t i); //todo: implement
+
     public:
         file_system(std::string filename, io &&disk_io);
 
