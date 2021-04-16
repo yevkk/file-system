@@ -77,6 +77,52 @@ namespace lab_fs {
         );
     }
 
+    fs_result file_system::create(std::string filename){
+        if(get_dir_entry(filename) == -1)
+            return EXISTS;
+        for(std::size_t i = 3; i< available_blocks.size(); ++i) // TODO : i=k, currently k is hardcoded
+            // available_blocks = bitmap, 0 is for free block?
+            if(!available_blocks[i]){
+                available_blocks[i] = true;
+                
+                for(std::size_t j = 0; j < 10000000; ++j) { // TODO: check all descriptors
+                    if (descriptors_map.find(j) != descriptors_map.end()) // check in cashe
+                        continue;
+                    auto descriptor = get_descriptor(j);
+                    if(true) // TODO: somehow check if descriptor is empty
+                        if(write_dir_entry(filename,j))
+                            return SUCCESS;
+                        else 
+                            // no free directory entries
+                            return NOSPACE;
+                }
+                
+                // no free descriptors
+                return NOSPACE;
+            }
+        // no free blocks 
+        return NOSPACE;
+    }
+
+    std::pair<std::size_t, fs_result> file_system::open(std::string filename){
+        auto i = get_dir_entry(filename);
+        if (i == -1)
+            return {-1, NOTFOUND};
+        
+        auto descriptor = get_descriptor(i);
+        if (descriptor == nullptr)
+            return {-1, NOTFOUND};
+
+        oft.emplace_back(filename,i);
+        descriptors_map.insert({i,descriptor});
+        descriptor_indexes_map.insert({filename,i});
+        return {oft.size()-1,SUCCESS};
+    }
+
+    fs_result file_system::write(std::size_t i, const std::vector<std::byte>& src){
+
+    }
+
     void file_system::save() {
         std::ofstream file{filename, std::ios::out | std::ios::binary};
 

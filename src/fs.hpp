@@ -66,17 +66,26 @@ namespace lab_fs {
         file_descriptor *get_descriptor(std::size_t i); //todo: implement
         void *write_descriptor(std::size_t i, file_descriptor *descriptor); //todo: implement
         void *remove_dir_entry(std::size_t i); //todo: implement
+        bool write_dir_entry(std::string filename, std::size_t descriptor_index);
+        std::size_t get_dir_entry(std::string filename); // -1 if there's none
 
     public:
         file_system(std::string filename, io &&disk_io);
 
         //todo: Declare here create, destroy, open, close, read, write, seek, directory...
+        fs_result create(std::string filename);
+        std::pair<std::size_t, fs_result> open(std::string filename);
+        fs_result write(std::size_t i, const std::vector<std::byte>& src);
 
         void save();
     };
 
     enum init_result {
         CREATED, RESTORED, FAILED
+    };
+
+    enum fs_result {
+        SUCCESS, EXISTS, NOSPACE, NOTFOUND
     };
 
     std::pair<file_system *, init_result> init(std::size_t cylinders_no,
