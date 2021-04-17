@@ -30,19 +30,9 @@ namespace lab_fs {
     }
 
     file_system::file_descriptor::file_descriptor(std::size_t length,
-                                                  std::initializer_list<std::size_t> occupied_blocks_il) :
+                                                  const std::array<std::size_t, constraints::max_blocks_per_file> &occupied_blocks) :
             length{length},
-            occupied_blocks{} {
-        assert(occupied_blocks_il.size() > 3 && "Too much arguments provided");
-        std::size_t i = 0;
-        for (auto it : occupied_blocks_il) {
-            occupied_blocks[i] = it;
-            i++;
-        }
-        for (; i < occupied_blocks.size(); i++) {
-            occupied_blocks[i] = 0;
-        }
-    }
+            occupied_blocks{occupied_blocks} {}
 
     file_system::oft_entry::oft_entry(std::string filename, std::size_t descriptor_index) :
             filename{std::move(filename)},
@@ -71,10 +61,20 @@ namespace lab_fs {
 
         oft.push_back(new oft_entry{"", 0});
         disk_io.read_block(1, buffer.begin());
-        auto to_size_t = [](std::byte byte) { return std::to_integer<std::size_t>(byte); };
-        descriptors_map[0] = new file_descriptor(to_size_t(buffer[0]) * 256 + to_size_t(buffer[1]),
-                                                 {to_size_t(buffer[2]), to_size_t(buffer[3]), to_size_t(buffer[4])}
-        );
+        std::uint8_t pos = 0;
+
+        auto length = std::to_integer<std::size_t>(buffer[pos]);
+        for (pos++; pos < file_system::constraints::bytes_for_file_length; pos++) {
+            length <<= 8;
+            length += std::to_integer<std::size_t>(buffer[pos]);
+        }
+
+        std::array<std::size_t, constraints::max_blocks_per_file> occupied_blocks{};
+        for (unsigned i = 0; i < constraints::max_blocks_per_file; i++, pos++) {
+            occupied_blocks[i] = std::to_integer<std::size_t>(buffer[pos]);
+        }
+
+        descriptors_map[0] = new file_descriptor(length, occupied_blocks);
     }
 
     void file_system::save() {
@@ -114,7 +114,7 @@ namespace lab_fs {
         assert(sections_no > 0 && "number of sections should be positive integer");
         assert((section_length & 1) != 1 && "section (block) length should be power of 2");
 
-        std::size_t blocks_no = cylinders_no * surfaces_no * sections_no;
+        std::uint8_t blocks_no = cylinders_no * surfaces_no * sections_no;
         assert(blocks_no > 2 && "blocks number should be greater than 2");
 
         std::vector disk{blocks_no, std::vector{section_length, std::byte{0}}};
@@ -130,7 +130,11 @@ namespace lab_fs {
         } else {
             result = CREATED;
             disk[0][0] = std::byte{224}; // 224 = 1110000
-            disk[1][3] = std::byte{2};
+
+            using constrs = file_system::constraints;
+            for (auto i = constrs::bytes_for_file_length; i < constrs::bytes_for_file_length + constrs::max_blocks_per_file; i++) {
+                disk[1][i] = std::byte{255};
+            }
         }
 
         return {new file_system{filename, io{blocks_no, section_length, std::move(disk)}}, result};
