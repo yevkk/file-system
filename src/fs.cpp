@@ -6,60 +6,37 @@
 
 namespace lab_fs {
 
-    io::io(std::size_t blocks_no, std::size_t block_size, std::vector<std::vector<std::byte>> &&disk) :
-            blocks_no{blocks_no},
-            block_size{block_size},
-            ldisk{disk} {}
-
-    void io::read_block(std::size_t i, std::vector<std::byte>::iterator dest) {
-        assert(i < blocks_no);
-        std::copy(ldisk[i].cbegin(), ldisk[i].cend(), dest);
-    }
-
-    void io::write_block(std::size_t i, std::vector<std::byte>::iterator src) {
-        assert(i < blocks_no);
-        std::copy(src, src + (int) block_size, ldisk[i].begin());
-    }
-
-    std::size_t io::get_blocks_no() const {
-        return blocks_no;
-    }
-
-    std::size_t io::get_block_size() const {
-        return block_size;
-    }
-
     file_system::file_descriptor::file_descriptor(std::size_t length,
                                                   const std::array<std::size_t, constraints::max_blocks_per_file> &occupied_blocks) :
             length{length},
             occupied_blocks{occupied_blocks} {}
 
     file_system::oft_entry::oft_entry(std::string filename, std::size_t descriptor_index) :
-            filename{std::move(filename)},
-            descriptor_index{descriptor_index},
+            _filename{std::move(filename)},
+            _descriptor_index{descriptor_index},
             current_pos{0},
             modified{false} {}
 
     std::size_t file_system::oft_entry::get_descriptor_index() const {
-        return descriptor_index;
+        return _descriptor_index;
     }
 
     std::string file_system::oft_entry::get_filename() const {
-        return filename;
+        return _filename;
     }
 
     file_system::file_system(std::string filename, io &&disk_io) :
-            filename{std::move(filename)},
-            disk_io{disk_io},
-            available_blocks(disk_io.get_blocks_no()) {
+            _filename{std::move(filename)},
+            _io{disk_io},
+            _bitmap(disk_io.get_blocks_no()) {
         std::vector<std::byte> buffer(disk_io.get_block_size());
 
         disk_io.read_block(0, buffer.begin());
-        for (std::size_t i = 0; i < available_blocks.size(); i++) {
-            available_blocks[i] = (bool) ((buffer[i / 8] >> (7 - (i % 8))) & std::byte{1});
+        for (std::size_t i = 0; i < _bitmap.size(); i++) {
+            _bitmap[i] = (bool) ((buffer[i / 8] >> (7 - (i % 8))) & std::byte{1});
         }
 
-        oft.push_back(new oft_entry{"", 0});
+        _oft.push_back(new oft_entry{"", 0});
         disk_io.read_block(1, buffer.begin());
         std::uint8_t pos = 0;
 
@@ -74,7 +51,7 @@ namespace lab_fs {
             occupied_blocks[i] = std::to_integer<std::size_t>(buffer[pos]);
         }
 
-        descriptors_map[0] = new file_descriptor(length, occupied_blocks);
+        _descriptors_cache[0] = new file_descriptor(length, occupied_blocks);
     }
 
     fs_result file_system::create(const std::string& filename){
@@ -150,7 +127,7 @@ namespace lab_fs {
         }
     }
 
-    std::pair<file_system *, init_result> init(std::size_t cylinders_no,
+    std::pair<file_system *, init_result> file_system::init(std::size_t cylinders_no,
                                                std::size_t surfaces_no,
                                                std::size_t sections_no,
                                                std::size_t section_length,
@@ -185,4 +162,33 @@ namespace lab_fs {
 
         return {new file_system{filename, io{blocks_no, section_length, std::move(disk)}}, result};
     }
+
+    void file_system::save() {
+        std::ofstream file{_filename, std::ios::out | std::ios::binary};
+
+        std::vector<std::byte> bitmap_block;
+        std::uint8_t x = 0;
+        for (std::size_t i = 0, j = 7; i < _bitmap.size(); i++, j--) {
+            x |= _bitmap[i];
+            if (j != 0) {
+                x <<= 1;
+            } else {
+                bitmap_block.push_back(std::byte{x});
+                x = 0;
+                j = 7;
+            }
+        }
+        bitmap_block.resize(_io.get_block_size(), std::byte{0});
+
+        //todo: for every opened and modified file call save?
+
+        file.write(reinterpret_cast<char *>(bitmap_block.data()), _io.get_block_size());
+        std::vector<std::byte> block(_io.get_block_size());
+        for (std::size_t i = 1; i < _io.get_blocks_no(); i++) {
+            _io.read_block(i, block.begin());
+            file.write(reinterpret_cast<char *>(bitmap_block.data()), _io.get_block_size());
+        }
+    }
+
+
 } //namespace lab_fs
