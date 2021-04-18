@@ -2,7 +2,6 @@
 
 #include <fstream>
 #include <cassert>
-#include <utility>
 
 namespace lab_fs {
 
@@ -53,7 +52,7 @@ namespace lab_fs {
 
         _descriptors_cache[0] = new file_descriptor(length, occupied_blocks);
     }
-    
+
     std::pair<file_system *, init_result> file_system::init(std::size_t cylinders_no,
                                                             std::size_t surfaces_no,
                                                             std::size_t sections_no,
@@ -115,6 +114,48 @@ namespace lab_fs {
             _io.read_block(i, block.begin());
             file.write(reinterpret_cast<char *>(bitmap_block.data()), _io.get_block_size());
         }
+    }
+
+    file_system::file_descriptor *file_system::get_descriptor(std::size_t descriptor_index) {
+        if (_descriptors_cache.contains(descriptor_index)) {
+            return _descriptors_cache[descriptor_index];
+        }
+
+        std::size_t offset = descriptor_index * (constraints::bytes_for_file_length + constraints::max_blocks_per_file);
+        std::uint8_t block_index = 1 + offset / _io.get_block_size();
+        if (block_index < _io.get_blocks_no()) {
+            std::size_t length = 0;
+            std::array<std::size_t, constraints::max_blocks_per_file> occupied_blocks{};
+
+            std::vector<std::byte> buffer{_io.get_block_size()};
+            _io.read_block(block_index, buffer.begin());
+            std::size_t pos = offset % _io.get_block_size();
+
+            for(unsigned i = 0; i < constraints::bytes_for_file_length; i++, pos++) {
+                if (pos == buffer.size()) {
+                    _io.read_block(block_index + 1, buffer.begin());
+                }
+                if (i != 0) {
+                    length <<= 8;
+                }
+                length += std::to_integer<std::size_t>(buffer[pos]);
+            }
+
+            for(unsigned i = 0; i < constraints::max_blocks_per_file; i++, pos++) {
+                if (pos == buffer.size()) {
+                    _io.read_block(block_index + 1, buffer.begin());
+                }
+                occupied_blocks[i] = std::to_integer<std::size_t>(buffer[pos]);
+            }
+
+            if (!(length == 0 && std::all_of(occupied_blocks.begin(), occupied_blocks.end(), [](const auto& value){ return value == 0; }))) {
+                auto fd = new file_descriptor(length, occupied_blocks);
+                _descriptors_cache[descriptor_index] = fd;
+                return fd;
+            }
+        }
+
+        return nullptr;
     }
 
 

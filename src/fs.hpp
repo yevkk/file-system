@@ -27,7 +27,8 @@ namespace lab_fs {
     private:
         class file_descriptor {
         public:
-            file_descriptor(std::size_t length, const std::array<std::size_t, constraints::max_blocks_per_file> &occupied_blocks);
+            file_descriptor(std::size_t length,
+                            const std::array<std::size_t, constraints::max_blocks_per_file> &occupied_blocks);
 
             std::size_t length;
             std::array<std::size_t, constraints::max_blocks_per_file> occupied_blocks;
@@ -38,6 +39,7 @@ namespace lab_fs {
             oft_entry(std::string filename, std::size_t descriptor_index);
 
             [[nodiscard]] std::size_t get_descriptor_index() const;
+
             [[nodiscard]] std::string get_filename() const;
 
             std::vector<std::byte> buffer;
@@ -55,9 +57,9 @@ namespace lab_fs {
         std::map<std::size_t, file_descriptor *> _descriptors_cache; // index of desc && file desc
         std::map<std::string, std::size_t> _descriptor_indexes_cache; //_filename && index of desc
 
-        file_descriptor *get_descriptor(std::size_t descriptor_index); //todo: implement
-        void *save_descriptor(std::size_t i, file_descriptor *descriptor); //todo: implement
-        int take_descriptor(); //todo: implement
+        auto get_descriptor(std::size_t descriptor_index) -> file_descriptor *;
+        auto save_descriptor(std::size_t i, file_descriptor *descriptor) -> void; //todo: implement
+        auto take_descriptor() -> int; //todo: implement
 
     public:
         file_system(std::string filename, io &&disk_io);
