@@ -55,75 +55,128 @@ namespace lab_fs {
     }
 
     fs_result file_system::create(const std::string& filename){
-        if(get_dir_entry(filename) == -1)
+        auto index = take_dir_entry();
+        if(index == -1)
             return EXISTS;
-        for(std::size_t i = 3; i< available_blocks.size(); ++i) // TODO : i=k, currently k is hardcoded
-            // available_blocks = bitmap, 0 is for free block?
-            if(!available_blocks[i]){
-                available_blocks[i] = true;
-                
-                for(std::size_t j = 0; j < 10000000; ++j) { // TODO: check all descriptors
-                    if (descriptors_map.find(j) != descriptors_map.end()) // check in cashe
-                        continue;
-                    auto descriptor = get_descriptor(j);
-                    if(true) // TODO: somehow check if descriptor is empty
-                        if(write_dir_entry(filename,j))
-                            return SUCCESS;
-                        else 
-                            // no free directory entries
-                            return NOSPACE;
-                }
-                
-                // no free descriptors
-                return NOSPACE;
-            }
-        // no free blocks 
-        return NOSPACE;
+        auto descriptor_index = take_descriptor();
+        if(descriptor_index == -1)
+            return NOSPACE;
+
+        save_dir_entry(index,filename,descriptor_index);
+        return SUCCESS;
     }
 
-    std::pair<std::size_t, fs_result> file_system::open(const std::string& filename){
-        auto i = get_dir_entry(filename);
-        if (i == -1)
-            return {-1, NOTFOUND};
+    std::pair<std::size_t, fs_result> file_system::open(const std::string& filename){       
+        file_descriptor* descriptor;
+        int index;
+        auto pos = _descriptor_indexes_cache.find(filename);
         
-        auto descriptor = get_descriptor(i);
-        if (descriptor == nullptr)
-            return {-1, NOTFOUND};
+        // check if file info is already cached
+        if(pos != _descriptor_indexes_cache.end()){
+            index = pos->second;
+            descriptor = _descriptors_cache[index];
+        } else {
+            index = get_descriptor_index_from_dir_entry(filename);
+            if(index == -1)
+                return {0,NOTFOUND};
+            descriptor = get_descriptor(index);
+             _descriptors_cache.insert({index,descriptor});
+            _descriptor_indexes_cache.insert({filename,index});
+        }
 
-        oft.emplace_back(filename,i);
-        descriptors_map.insert({i,descriptor});
-        descriptor_indexes_map.insert({filename,i});
-        return {oft.size()-1,SUCCESS};
+        _oft.emplace_back(filename,index);    
+        return {_oft.size()-1,SUCCESS};
     }
 
     fs_result file_system::write(std::size_t i, const std::vector<std::byte>& src){
+        auto ofte = _oft[i];
+        auto buffer = ofte->buffer;
+        auto descriptor=  _descriptors_cache[ofte->get_descriptor_index()];
+        std::size_t buff_pos = ofte->current_pos % _io.get_block_size();
+        std::size_t current_block = ofte->current_pos / _io.get_block_size();
+        std::size_t offset = 0;
+        std::size_t new_pos = buff_pos;
+        bool changed = false;
 
-    }
+        if (src.size() == 0)
+            return SUCCESS;
+        
+        //TODO: read buffer if needed, allocate first block if file is empty
 
-    void file_system::save() {
-        std::ofstream file{filename, std::ios::out | std::ios::binary};
+        while(true){
+            // fits within current block
+            if (src.size() - offset < _io.get_block_size() - buff_pos) {
+                std::copy(src.begin()+offset, src.end(), buffer.begin()+buff_pos);
+                new_pos = buff_pos + src.size() - offset;
+                ofte->current_pos = current_block * _io.get_block_size() + new_pos;
 
-        std::vector<std::byte> bitmap_block;
-        std::uint8_t x = 0;
-        for (std::size_t i = 0, j = 7; i < available_blocks.size(); i++, j--) {
-            x |= available_blocks[i];
-            if (j != 0) {
-                x <<= 1;
-            } else {
-                bitmap_block.push_back(std::byte{x});
-                x = 0;
-                j = 7;
+                if (descriptor->length < current_block * _io.get_block_size() + new_pos){
+                    descriptor->length =  current_block * _io.get_block_size() + new_pos;
+                    changed = true;
+                }
+
+                if (changed){
+                    save_descriptor(ofte->get_descriptor_index(),descriptor);
+                }
+                return SUCCESS;
             }
-        }
-        bitmap_block.resize(disk_io.get_block_size(), std::byte{0});
+            // src would be split between couple blocks 
+            else {
+                auto part = _io.get_block_size() - buff_pos;
+                std::copy(src.begin()+offset, src.begin()+offset+part, buffer.begin()+buff_pos);
+                offset += part;
+                new_pos = buff_pos + part;
 
-        //todo: for every opened and modified file call save?
-
-        file.write(reinterpret_cast<char *>(bitmap_block.data()), disk_io.get_block_size());
-        std::vector<std::byte> block(disk_io.get_block_size());
-        for (std::size_t i = 1; i < disk_io.get_blocks_no(); i++) {
-            disk_io.read_block(i, block.begin());
-            file.write(reinterpret_cast<char *>(bitmap_block.data()), disk_io.get_block_size());
+                //save changes to disk
+                _io.write_block(descriptor->occupied_blocks[current_block],buffer.begin());
+                
+                // check if there is space to continue
+                if(current_block < constraints::max_blocks_per_file - 1){
+                    ++current_block;
+                    // read next allocated block
+                    if (descriptor->occupied_blocks[current_block] != 0){
+                        _io.read_block(descriptor->occupied_blocks[current_block],buffer.begin());
+                        buff_pos = 0;
+                    }
+                    // allocate new block
+                    else {
+                        for(int i = constraints::descriptive_blocks_no; i < _io.get_blocks_no(); ++i)
+                            if (!_bitmap[i]){
+                                _bitmap[i] = true;
+                                descriptor->occupied_blocks[current_block] = i;
+                                changed = true;
+                                
+                                // new fresh buffer!
+                                std::fill(buffer.begin(),buffer.end(),std::byte(0));
+                                break;
+                            }
+                        
+                        // if new current block is still zero that means that all blocks are occupied!
+                        if(descriptor->occupied_blocks[current_block] == 0){
+                            ofte->current_pos = current_block * _io.get_block_size(); //???????????????????????????
+                            if(descriptor->length < current_block * _io.get_block_size()){
+                                descriptor->length = current_block * _io.get_block_size();
+                                changed = true;
+                            }
+                            
+                            if (changed){
+                                save_descriptor(ofte->get_descriptor_index(),descriptor);
+                            }
+                            return NOSPACE;
+                        }
+                    }
+                } else {
+                    ofte->current_pos = descriptor->length;
+                    if(descriptor->length < constraints::max_blocks_per_file * _io.get_block_size()){
+                        descriptor->length = constraints::max_blocks_per_file * _io.get_block_size();                        
+                        changed = true;
+                    }
+                    if (changed){
+                        save_descriptor(ofte->get_descriptor_index(),descriptor);
+                    }
+                    return TOOBIG;
+                }
+            }      
         }
     }
 

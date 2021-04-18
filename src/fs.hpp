@@ -15,7 +15,7 @@ namespace lab_fs {
         CREATED, RESTORED, FAILED
     };
     enum fs_result {
-        SUCCESS, EXISTS, NOSPACE, NOTFOUND
+        SUCCESS, EXISTS, NOSPACE, NOTFOUND, TOOBIG
     };
 
     class file_system {
@@ -61,11 +61,15 @@ namespace lab_fs {
         file_descriptor *get_descriptor(std::size_t descriptor_index); //todo: implement
         void *save_descriptor(std::size_t i, file_descriptor *descriptor); //todo: implement
         int take_descriptor(); //todo: implement
+        int get_descriptor_index_from_dir_entry(const std::string& filename);
+        int take_dir_entry(); // picks first free but read through all to verify there is no same file
+        void save_dir_entry(std::size_t i, std::string filename, std::size_t descriptor_index);
 
     public:
         file_system(std::string filename, io &&disk_io);
 
         //todo: Declare here create, destroy, open, close, read, write, seek, directory...
+        fs_result lseek(std::size_t i, std::size_t pos);
         fs_result create(const std::string& filename);
         std::pair<std::size_t, fs_result> open(const std::string& filename);
         fs_result write(std::size_t i, const std::vector<std::byte>& src);
