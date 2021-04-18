@@ -65,8 +65,8 @@ namespace lab_fs {
         io disk_io;
         std::vector<bool> available_blocks;
         std::vector<oft_entry *> oft;
-        std::map<std::size_t, file_descriptor *> descriptors_map; // index of desc && file desc
-        std::map<std::string, std::size_t> descriptor_indexes_map; //filename && index of desc
+        std::map<std::size_t, file_descriptor *> descriptors_cache; // index of desc && file desc
+        std::map<std::string, std::size_t> descriptor_indexes_cache; //filename && index of desc
 
         file_descriptor *get_descriptor(std::size_t i); //todo: implement
         void *write_descriptor(std::size_t i, file_descriptor *descriptor); //todo: implement
