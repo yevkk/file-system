@@ -29,13 +29,21 @@ namespace lab_fs {
     };
 
     class file_system {
+    public:
+        struct constraints {
+            static constexpr std::size_t descriptive_blocks_no = 2;
+            static constexpr std::size_t bytes_for_file_length = 2;
+            static constexpr std::size_t max_blocks_per_file = 3;
+            static constexpr std::size_t max_filename_length = 15;
+            static constexpr std::size_t oft_max_size = 16;
+        };
     private:
         class file_descriptor {
         public:
-            file_descriptor(std::size_t length, std::initializer_list<std::size_t> occupied_blocks);
+            file_descriptor(std::size_t length, const std::array<std::size_t, constraints::max_blocks_per_file> &occupied_blocks);
 
             std::size_t length;
-            std::array<std::size_t, 3> occupied_blocks;
+            std::array<std::size_t, constraints::max_blocks_per_file> occupied_blocks;
         };
 
         class oft_entry {
@@ -57,11 +65,8 @@ namespace lab_fs {
         io disk_io;
         std::vector<bool> available_blocks;
         std::vector<oft_entry *> oft;
-        std::map<std::size_t, file_descriptor *> descriptors_map;
-        std::map<std::string, std::size_t> descriptor_indexes_map;
-
-        static constexpr std::size_t oft_max_size = 16;
-
+        std::map<std::size_t, file_descriptor *> descriptors_cache; // index of desc && file desc
+        std::map<std::string, std::size_t> descriptor_indexes_cache; //filename && index of desc
 
         file_descriptor *get_descriptor(std::size_t i); //todo: implement
         void *write_descriptor(std::size_t i, file_descriptor *descriptor); //todo: implement
