@@ -73,8 +73,8 @@ namespace lab_fs {
         file_system(std::string filename, io &&disk_io);
 
         //todo: Declare here create, destroy, open, close, read, write, seek, directory...
-        fs_result create(std::string filename);
-        std::pair<std::size_t, fs_result> open(std::string filename);
+        fs_result create(const std::string& filename);
+        std::pair<std::size_t, fs_result> open(const std::string& filename);
         fs_result write(std::size_t i, const std::vector<std::byte>& src);
 
         void save();

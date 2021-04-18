@@ -77,7 +77,7 @@ namespace lab_fs {
         );
     }
 
-    fs_result file_system::create(std::string filename){
+    fs_result file_system::create(const std::string& filename){
         if(get_dir_entry(filename) == -1)
             return EXISTS;
         for(std::size_t i = 3; i< available_blocks.size(); ++i) // TODO : i=k, currently k is hardcoded
@@ -104,7 +104,7 @@ namespace lab_fs {
         return NOSPACE;
     }
 
-    std::pair<std::size_t, fs_result> file_system::open(std::string filename){
+    std::pair<std::size_t, fs_result> file_system::open(const std::string& filename){
         auto i = get_dir_entry(filename);
         if (i == -1)
             return {-1, NOTFOUND};
