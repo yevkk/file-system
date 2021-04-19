@@ -136,10 +136,11 @@ namespace lab_fs {
 
         std::vector<std::byte> buffer{_io.get_block_size()};
         _io.read_block(block_index, buffer.begin());
-        
+
         for (unsigned i = 0; i < constraints::bytes_for_file_length; i++, pos++) {
             if (pos == buffer.size()) {
                 _io.read_block(block_index + 1, buffer.begin());
+                pos = 0;
             }
             if (i != 0) {
                 length <<= 8;
@@ -150,6 +151,7 @@ namespace lab_fs {
         for (unsigned i = 0; i < constraints::max_blocks_per_file; i++, pos++) {
             if (pos == buffer.size()) {
                 _io.read_block(block_index + 1, buffer.begin());
+                pos = 0;
             }
             occupied_blocks[i] = std::to_integer<std::size_t>(buffer[pos]);
         }
@@ -163,8 +165,43 @@ namespace lab_fs {
         }
     }
 
+    bool file_system::save_descriptor(std::size_t index, file_descriptor *descriptor) {
+        std::size_t offset = index * constraints::bytes_for_descriptor;
+        std::size_t pos = offset % _io.get_block_size();
+        std::uint8_t block_index = 1 + offset / _io.get_block_size();
 
+        if (block_index >= _io.get_blocks_no() || (block_index == constraints::descriptive_blocks_no - 1 && pos > _io.get_block_size() - constraints::bytes_for_descriptor)) {
+            return false;
+        }
+
+        std::vector<std::byte> buffer{_io.get_block_size()};
+        _io.read_block(block_index, buffer.begin());
+
+        std::size_t length = descriptor->length;
+        for (unsigned i = 0; i < constraints::bytes_for_file_length; i++, pos++) {
+            if (pos == buffer.size()) {
+                _io.write_block(block_index, buffer.begin());
+                block_index++;
+                pos = 0;
+                _io.read_block(block_index, buffer.begin());
+            }
+            buffer[pos] = std::byte{(std::uint8_t)(length % 256)};
+            length >>= 8;
+        }
+
+        for (unsigned i = 0; i < constraints::max_blocks_per_file; i++, pos++) {
+            if (pos == buffer.size()) {
+                _io.write_block(block_index, buffer.begin());
+                block_index++;
+                pos = 0;
+                _io.read_block(block_index, buffer.begin());
+            }
+            buffer[pos] = std::byte{(std::uint8_t)descriptor->occupied_blocks[i]};
+        }
+
+        _io.write_block(block_index, buffer.begin());
+
+        return true;
     }
-
 
 } //namespace lab_fs

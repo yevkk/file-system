@@ -23,6 +23,9 @@ namespace lab_fs {
             static constexpr std::size_t max_blocks_per_file = 3;
             static constexpr std::size_t max_filename_length = 15;
             static constexpr std::size_t oft_max_size = 16;
+            static constexpr std::size_t bytes_for_descriptor = bytes_for_file_length + max_blocks_per_file;
+
+            constraints() = delete;
         };
     private:
         class file_descriptor {
@@ -58,7 +61,7 @@ namespace lab_fs {
         std::map<std::string, std::size_t> _descriptor_indexes_cache; //_filename && index of desc
 
         auto get_descriptor(std::size_t index) -> file_descriptor *;
-        auto save_descriptor(std::size_t i, file_descriptor *descriptor) -> bool; //todo: implement
+        auto save_descriptor(std::size_t index, file_descriptor *descriptor) -> bool; //todo: implement
         auto take_descriptor() -> int; //todo: implement
 
     public:
