@@ -64,7 +64,7 @@ namespace lab_fs {
         assert((section_length & 1) != 1 && "section (block) length should be power of 2");
 
         std::uint8_t blocks_no = cylinders_no * surfaces_no * sections_no;
-        assert(blocks_no > 2 && "blocks number should be greater than 2");
+        assert(blocks_no > constraints::descriptive_blocks_no && "blocks number is too small");
 
         std::vector disk{blocks_no, std::vector{section_length, std::byte{0}}};
         init_result result;
@@ -123,7 +123,7 @@ namespace lab_fs {
 
         std::size_t offset = index * (constraints::bytes_for_file_length + constraints::max_blocks_per_file);
         std::uint8_t block_index = 1 + offset / _io.get_block_size();
-        if (block_index < _io.get_blocks_no()) {
+        if (block_index < constraints::descriptive_blocks_no) {
             std::size_t length = 0;
             std::array<std::size_t, constraints::max_blocks_per_file> occupied_blocks{};
 
