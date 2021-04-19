@@ -116,12 +116,12 @@ namespace lab_fs {
         }
     }
 
-    file_system::file_descriptor *file_system::get_descriptor(std::size_t descriptor_index) {
-        if (_descriptors_cache.contains(descriptor_index)) {
-            return _descriptors_cache[descriptor_index];
+    file_system::file_descriptor *file_system::get_descriptor(std::size_t index) {
+        if (_descriptors_cache.contains(index)) {
+            return _descriptors_cache[index];
         }
 
-        std::size_t offset = descriptor_index * (constraints::bytes_for_file_length + constraints::max_blocks_per_file);
+        std::size_t offset = index * (constraints::bytes_for_file_length + constraints::max_blocks_per_file);
         std::uint8_t block_index = 1 + offset / _io.get_block_size();
         if (block_index < _io.get_blocks_no()) {
             std::size_t length = 0;
@@ -150,7 +150,7 @@ namespace lab_fs {
 
             if (!(length == 0 && std::all_of(occupied_blocks.begin(), occupied_blocks.end(), [](const auto& value){ return value == 0; }))) {
                 auto fd = new file_descriptor(length, occupied_blocks);
-                _descriptors_cache[descriptor_index] = fd;
+                _descriptors_cache[index] = fd;
                 return fd;
             }
         }

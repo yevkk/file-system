@@ -57,8 +57,8 @@ namespace lab_fs {
         std::map<std::size_t, file_descriptor *> _descriptors_cache; // index of desc && file desc
         std::map<std::string, std::size_t> _descriptor_indexes_cache; //_filename && index of desc
 
-        auto get_descriptor(std::size_t descriptor_index) -> file_descriptor *;
-        auto save_descriptor(std::size_t i, file_descriptor *descriptor) -> void; //todo: implement
+        auto get_descriptor(std::size_t index) -> file_descriptor *;
+        auto save_descriptor(std::size_t i, file_descriptor *descriptor) -> bool; //todo: implement
         auto take_descriptor() -> int; //todo: implement
 
     public:
