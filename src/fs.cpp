@@ -124,40 +124,27 @@ namespace lab_fs {
         }
 
         std::size_t offset = index * constraints::bytes_for_descriptor;
-        std::uint8_t block_index = 1 + offset / _io.get_block_size();
-        std::size_t pos = offset % _io.get_block_size();
+        std::uint8_t block_i = 1 + offset / _io.get_block_size();
+        if (block_i >= constraints::descriptive_blocks_no) {
+            return nullptr;
+        }
 
-        if (block_index >= constraints::descriptive_blocks_no || (block_index == constraints::descriptive_blocks_no - 1 && pos > _io.get_block_size() - constraints::bytes_for_descriptor)) {
+        utils::disk_view dv{_io,  block_i, false};
+        if (dv.block_i() == constraints::descriptive_blocks_no - 1 && offset % _io.get_block_size() > _io.get_block_size() - constraints::bytes_for_descriptor) {
             return nullptr;
         }
 
         std::size_t length = 0;
         std::array<std::size_t, constraints::max_blocks_per_file> occupied_blocks{};
-
-        std::vector<std::byte> buffer{_io.get_block_size()};
-        _io.read_block(block_index, buffer.begin());
-
-        for (unsigned i = 0; i < constraints::bytes_for_file_length; i++, pos++) {
-            if (pos == buffer.size()) {
-                _io.read_block(block_index + 1, buffer.begin());
-                pos = 0;
-            }
-            if (i != 0) {
-                length <<= 8;
-            }
-            length += std::to_integer<std::size_t>(buffer[pos]);
+        for (unsigned i = 0; i < constraints::bytes_for_file_length; i++, offset++) {
+            length <<= 8;
+            length += std::to_integer<std::size_t>(dv[offset]);
+        }
+        for (unsigned i = 0; i < constraints::max_blocks_per_file; i++, offset++) {
+            occupied_blocks[i] = std::to_integer<std::size_t>(dv[offset]);
         }
 
-        for (unsigned i = 0; i < constraints::max_blocks_per_file; i++, pos++) {
-            if (pos == buffer.size()) {
-                _io.read_block(block_index + 1, buffer.begin());
-                pos = 0;
-            }
-            occupied_blocks[i] = std::to_integer<std::size_t>(buffer[pos]);
-        }
-
-        if (!(length == 0 && std::all_of(occupied_blocks.begin(), occupied_blocks.end(),
-                                         [](const auto &value) { return value == 0; }))) {
+        if (!(length == 0 && std::all_of(occupied_blocks.begin(), occupied_blocks.end(),[](const auto &value) { return value == 0; }))) {
             auto fd = new file_descriptor(length, occupied_blocks);
             _descriptors_cache[index] = fd;
             return fd;
@@ -168,75 +155,57 @@ namespace lab_fs {
 
     bool file_system::save_descriptor(std::size_t index, file_descriptor *descriptor) {
         std::size_t offset = index * constraints::bytes_for_descriptor;
-        std::size_t pos = offset % _io.get_block_size();
-        std::uint8_t block_index = 1 + offset / _io.get_block_size();
-
-        if (block_index >= constraints::descriptive_blocks_no || (block_index == constraints::descriptive_blocks_no - 1 && pos > _io.get_block_size() - constraints::bytes_for_descriptor)) {
+        std::uint8_t block_i = 1 + offset / _io.get_block_size();
+        if (block_i >= constraints::descriptive_blocks_no) {
             return false;
         }
 
-        std::vector<std::byte> buffer{_io.get_block_size()};
-        _io.read_block(block_index, buffer.begin());
+        utils::disk_view dv{_io, block_i, true};
+        if (dv.block_i() == constraints::descriptive_blocks_no - 1 && offset % _io.get_block_size() > _io.get_block_size() - constraints::bytes_for_descriptor) {
+            return false;
+        }
 
         std::size_t length = descriptor->length;
-        for (unsigned i = 0; i < constraints::bytes_for_file_length; i++, pos++) {
-            if (pos == buffer.size()) {
-                _io.write_block(block_index, buffer.begin());
-                block_index++;
-                pos = 0;
-                _io.read_block(block_index, buffer.begin());
-            }
-            buffer[pos] = std::byte{(std::uint8_t) (length % 256)};
+        for (unsigned i = 0; i < constraints::bytes_for_file_length; i++, offset++) {
+            dv[offset] = std::byte{(std::uint8_t) (length % 256)};
             length >>= 8;
         }
-
-        for (unsigned i = 0; i < constraints::max_blocks_per_file; i++, pos++) {
-            if (pos == buffer.size()) {
-                _io.write_block(block_index, buffer.begin());
-                block_index++;
-                pos = 0;
-                _io.read_block(block_index, buffer.begin());
-            }
-            buffer[pos] = std::byte{(std::uint8_t) descriptor->occupied_blocks[i]};
+        for (unsigned i = 0; i < constraints::max_blocks_per_file; i++, offset++) {
+            dv[offset] = std::byte{(std::uint8_t) descriptor->occupied_blocks[i]};
         }
-
-        _io.write_block(block_index, buffer.begin());
+        dv.push_buffer();
 
         return true;
     }
 
-    /**
-     * @warning todo: working with several blocks for descriptors is not implemented yet
-     */
     int file_system::take_descriptor() {
-        std::vector<std::byte> buffer{_io.get_block_size()};
-        std::size_t pos = 0;
         int index = 0;
-        std::uint8_t block_index = 1;
+        std::size_t offset = 0;
+        utils::disk_view dv{_io, 1, false};
 
-        _io.read_block(block_index, buffer.begin());
         while (true) {
-            if (block_index == constraints::descriptive_blocks_no - 1 && pos > _io.get_block_size() - constraints::bytes_for_descriptor) {
+            if (dv.block_i() == constraints::descriptive_blocks_no - 1 && offset % _io.get_block_size() > _io.get_block_size() - constraints::bytes_for_descriptor) {
                 return -1;
             }
 
-            bool ready = true;
+            bool found = true;
             for (unsigned i = 0; i < constraints::bytes_for_descriptor; i++) {
-                if (buffer[pos + i] != std::byte{0}) {
-                    ready = false;
+                if (dv[offset + i] != std::byte{0}) {
+                    found = false;
                     break;
                 }
             }
 
-            if (ready) {
+            if (found) {
+                dv.enable_write();
                 for (unsigned i = constraints::bytes_for_file_length; i < constraints::bytes_for_descriptor; i++) {
-                    buffer[pos + i] = std::byte{255};
+                    dv[offset + i] = std::byte{255};
                 }
-                _io.write_block(block_index, buffer.begin());
+                dv.push_buffer();
                 return index;
             } else {
                 index++;
-                pos += constraints::bytes_for_descriptor;
+                offset += constraints::bytes_for_descriptor;
             }
         }
 
