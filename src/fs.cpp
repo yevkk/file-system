@@ -15,7 +15,8 @@ namespace lab_fs {
             _filename{std::move(filename)},
             _descriptor_index{descriptor_index},
             current_pos{0},
-            modified{false} {}
+            modified{false},
+            initialized{false} {}
 
     std::size_t file_system::oft_entry::get_descriptor_index() const {
         return _descriptor_index;
@@ -54,10 +55,130 @@ namespace lab_fs {
         _descriptors_cache[0] = new file_descriptor(length, occupied_blocks);
     }
 
-fs_result file_system::create(const std::string& filename){
-        auto index = take_dir_entry();
-        if(index == -1)
+    namespace utils {
+        struct dir_entry {
+            char filename_[file_system::constraints::max_filename_length];
+            std::byte descriptor_index_; 
+
+            dir_entry(const std::string& filename, std::byte descriptor_index) :
+                    descriptor_index_{descriptor_index}  
+            {
+                std::copy(filename.begin(),filename.begin() + file_system::constraints::max_filename_length, filename);
+            }
+
+            std::string get_filename(){
+                return std::string(filename_);
+            }
+
+            bool is_empty() const {
+                for(int i = 0; i < file_system::constraints::max_filename_length; ++i){
+                    if(filename_[i] != 0)
+                        return false;
+                }
+                return true;
+            }
+        };
+
+        std::optional<dir_entry> read_dir_entry(file_system* fs ,std::size_t i) {
+            if(i >= fs->max_files_quantity - 1){
+                return std::nullopt;
+            }
+            
+            auto container = std::vector<std::byte>(sizeof(dir_entry));
+            
+            std::size_t pos = i * (sizeof(dir_entry));
+            if(fs->lseek(0, pos) == SUCCESS) {
+                // TODO: replace with (fs->read(0, container) == SUCCESS) or something like that
+                if(true){
+                    std::byte* data = &container[0];
+                    auto dire = reinterpret_cast<dir_entry*>(data);
+                    return std::optional<dir_entry>{*dire};
+                } else {
+                    return std::nullopt;;
+                }
+            } else {
+                return std::nullopt;;
+            }
+        }
+    }
+
+    int file_system::get_descriptor_index_from_dir_entry(const std::string& filename){
+        std::size_t i = 0;
+        while (true){
+            auto dire_opt = utils::read_dir_entry(this,i);
+            if (!dire_opt.has_value()){
+                return -1;
+            }
+            auto dire = dire_opt.value();
+            if (dire.get_filename() == filename){
+                return int(dire.descriptor_index_);
+            }
+            ++i;
+        }
+    }
+
+    // picks last free space and reads through all to verify there is no same file
+    int file_system::take_dir_entry(const std::string& filename) {
+        std::size_t i = 0;
+        int free = -1;
+        while (true){
+            auto dire_opt = utils::read_dir_entry(this,i);
+            
+            // looked through all dir entries and none of them is free
+            if (!dire_opt.has_value() && free == -1){
+                return -2;
+            }
+            
+            auto dire = dire_opt.value();
+            
+            // check if file has same name
+            if(dire.get_filename() == filename){
+                return -1;
+            }
+
+            // remember empty slot
+            if (dire.is_empty()){
+                free = i;
+            }
+            ++i;
+        }
+        return free;
+    }  
+
+    bool file_system::save_dir_entry(std::size_t i, std::string filename, std::size_t descriptor_index){
+        if(i >= max_files_quantity - 1){
+            return false;
+        }
+        auto dire = utils::dir_entry{filename,std::byte{descriptor_index}};
+        auto aux = reinterpret_cast<std::byte*>(&dire);
+        auto data = std::vector<std::byte>();
+        data.insert(data.end(), aux, aux + sizeof(utils::dir_entry));
+
+        std::size_t pos = i * (sizeof(utils::dir_entry));
+        if(lseek(0, pos) == SUCCESS) {
+            if(write(0, data) == SUCCESS){
+                return true;
+            } else {
+                return false;
+            }
+        } else {
+            return false;
+        }
+    }
+
+    fs_result file_system::create(const std::string& filename){
+        if(filename.size() > constraints::max_filename_length){
+            return INVALIDNAME;
+        }
+
+        auto index = take_dir_entry(filename);
+        if(index == -1) {
             return EXISTS;
+        }
+        if(index == -2) {
+            return NOSPACE;
+        }
+        
         auto descriptor_index = take_descriptor();
         if(descriptor_index == -1)
             return NOSPACE;
@@ -67,28 +188,33 @@ fs_result file_system::create(const std::string& filename){
     }
 
     std::pair<std::size_t, fs_result> file_system::open(const std::string& filename){       
-        file_descriptor* descriptor;
+        if(filename.size() > constraints::max_filename_length){
+            return {0,INVALIDNAME};
+        }
+        
+        if (_oft.size() == constraints::oft_max_size){
+            return {0,NOSPACE};
+        }
+        
         int index;
-        auto pos = _descriptor_indexes_cache.find(filename);
         
         // check if file info is already cached
-        if(pos != _descriptor_indexes_cache.end()){
-            index = pos->second;
-            descriptor = _descriptors_cache[index];
+        if(_descriptor_indexes_cache.contains(filename)){
+            index = _descriptor_indexes_cache[filename];
         } else {
             index = get_descriptor_index_from_dir_entry(filename);
             if(index == -1)
-                return {0,NOTFOUND};
-            descriptor = get_descriptor(index);
-             _descriptors_cache.insert({index,descriptor});
-            _descriptor_indexes_cache.insert({filename,index});
+                return {0,NOTFOUND};          
         }
-
+        get_descriptor(index);      
         _oft.emplace_back(filename,index);    
         return {_oft.size()-1,SUCCESS};
     }
 
     fs_result file_system::write(std::size_t i, const std::vector<std::byte>& src){
+        if (src.size() == 0) {
+            return SUCCESS;
+        }        
         auto ofte = _oft[i];
         auto buffer = ofte->buffer;
         auto descriptor=  _descriptors_cache[ofte->get_descriptor_index()];
@@ -98,10 +224,9 @@ fs_result file_system::create(const std::string& filename){
         std::size_t new_pos = buff_pos;
         bool changed = false;
 
-        if (src.size() == 0)
-            return SUCCESS;
-        
-        //TODO: read buffer if needed, allocate first block if file is empty
+        if (!ofte->initialized){
+            _io.read_block(descriptor->occupied_blocks[current_block],buffer.begin());
+        }
 
         while(true){
             // fits within current block
