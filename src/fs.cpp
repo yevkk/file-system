@@ -247,13 +247,15 @@ namespace lab_fs {
             }
             // src would be split between couple blocks 
             else {
-                auto part = _io.get_block_size() - buff_pos;
-                std::copy(src.begin()+offset, src.begin()+offset+part, buffer.begin()+buff_pos);
-                offset += part;
-                new_pos = buff_pos + part;
+                if(current_block < constraints::max_blocks_per_file){
+                    auto part = _io.get_block_size() - buff_pos;
+                    std::copy(src.begin()+offset, src.begin()+offset+part, buffer.begin()+buff_pos);
+                    offset += part;
+                    new_pos = buff_pos + part;
 
-                //save changes to disk
-                _io.write_block(descriptor->occupied_blocks[current_block],buffer.begin());
+                    //save changes to disk
+                    _io.write_block(descriptor->occupied_blocks[current_block],buffer.begin());
+                }
                 
                 // check if there is space to continue
                 if(current_block < constraints::max_blocks_per_file - 1){
