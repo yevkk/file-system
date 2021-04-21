@@ -2,12 +2,12 @@
 
 #include <fstream>
 #include <cassert>
-#include <utility>
 
 namespace lab_fs {
 
     file_system::file_descriptor::file_descriptor(std::size_t length,
-                                                  const std::array<std::size_t, constraints::max_blocks_per_file> &occupied_blocks) :
+                                                  const std::array<std::size_t, constraints::max_blocks_per_file> &occupied_blocks)
+            :
             length{length},
             occupied_blocks{occupied_blocks} {}
 
@@ -54,7 +54,7 @@ namespace lab_fs {
         _descriptors_cache[0] = new file_descriptor(length, occupied_blocks);
     }
 
-    fs_result file_system::create(const std::string& filename){
+fs_result file_system::create(const std::string& filename){
         auto index = take_dir_entry();
         if(index == -1)
             return EXISTS;
@@ -181,17 +181,17 @@ namespace lab_fs {
     }
 
     std::pair<file_system *, init_result> file_system::init(std::size_t cylinders_no,
-                                               std::size_t surfaces_no,
-                                               std::size_t sections_no,
-                                               std::size_t section_length,
-                                               const std::string &filename) {
+                                                            std::size_t surfaces_no,
+                                                            std::size_t sections_no,
+                                                            std::size_t section_length,
+                                                            const std::string &filename) {
         assert(cylinders_no > 0 && "number of cylinders should be positive integer");
         assert(surfaces_no > 0 && "number of surfaces should be positive integer");
         assert(sections_no > 0 && "number of sections should be positive integer");
         assert((section_length & 1) != 1 && "section (block) length should be power of 2");
 
         std::uint8_t blocks_no = cylinders_no * surfaces_no * sections_no;
-        assert(blocks_no > 2 && "blocks number should be greater than 2");
+        assert(blocks_no > constraints::descriptive_blocks_no && "blocks number is too small");
 
         std::vector disk{blocks_no, std::vector{section_length, std::byte{0}}};
         init_result result;
@@ -208,7 +208,8 @@ namespace lab_fs {
             disk[0][0] = std::byte{224}; // 224 = 1110000
 
             using constrs = file_system::constraints;
-            for (auto i = constrs::bytes_for_file_length; i < constrs::bytes_for_file_length + constrs::max_blocks_per_file; i++) {
+            for (auto i = constrs::bytes_for_file_length;
+                 i < constrs::bytes_for_file_length + constrs::max_blocks_per_file; i++) {
                 disk[1][i] = std::byte{255};
             }
         }
@@ -243,5 +244,97 @@ namespace lab_fs {
         }
     }
 
+    file_system::file_descriptor *file_system::get_descriptor(std::size_t index) {
+        if (_descriptors_cache.contains(index)) {
+            return _descriptors_cache[index];
+        }
+
+        std::size_t offset = index * constraints::bytes_for_descriptor;
+        std::uint8_t block_i = 1 + offset / _io.get_block_size();
+        if (block_i >= constraints::descriptive_blocks_no) {
+            return nullptr;
+        }
+
+        utils::disk_view dv{_io,  block_i, false};
+        if (dv.block_i() == constraints::descriptive_blocks_no - 1 && offset % _io.get_block_size() > _io.get_block_size() - constraints::bytes_for_descriptor) {
+            return nullptr;
+        }
+
+        std::size_t length = 0;
+        std::array<std::size_t, constraints::max_blocks_per_file> occupied_blocks{};
+        for (unsigned i = 0; i < constraints::bytes_for_file_length; i++, offset++) {
+            length <<= 8;
+            length += std::to_integer<std::size_t>(dv[offset]);
+        }
+        for (unsigned i = 0; i < constraints::max_blocks_per_file; i++, offset++) {
+            occupied_blocks[i] = std::to_integer<std::size_t>(dv[offset]);
+        }
+
+        if (!(length == 0 && std::all_of(occupied_blocks.begin(), occupied_blocks.end(),[](const auto &value) { return value == 0; }))) {
+            auto fd = new file_descriptor(length, occupied_blocks);
+            _descriptors_cache[index] = fd;
+            return fd;
+        } else {
+            return nullptr;
+        }
+    }
+
+    bool file_system::save_descriptor(std::size_t index, file_descriptor *descriptor) {
+        std::size_t offset = index * constraints::bytes_for_descriptor;
+        std::uint8_t block_i = 1 + offset / _io.get_block_size();
+        if (block_i >= constraints::descriptive_blocks_no) {
+            return false;
+        }
+
+        utils::disk_view dv{_io, block_i, true};
+        if (dv.block_i() == constraints::descriptive_blocks_no - 1 && offset % _io.get_block_size() > _io.get_block_size() - constraints::bytes_for_descriptor) {
+            return false;
+        }
+
+        std::size_t length = descriptor->length;
+        for (unsigned i = 0; i < constraints::bytes_for_file_length; i++, offset++) {
+            dv[offset] = std::byte{(std::uint8_t) (length % 256)};
+            length >>= 8;
+        }
+        for (unsigned i = 0; i < constraints::max_blocks_per_file; i++, offset++) {
+            dv[offset] = std::byte{(std::uint8_t) descriptor->occupied_blocks[i]};
+        }
+        dv.push_buffer();
+
+        return true;
+    }
+
+    int file_system::take_descriptor() {
+        int index = 0;
+        std::size_t offset = 0;
+        utils::disk_view dv{_io, 1, false};
+
+        while (true) {
+            if (dv.block_i() == constraints::descriptive_blocks_no - 1 && offset % _io.get_block_size() > _io.get_block_size() - constraints::bytes_for_descriptor) {
+                return -1;
+            }
+
+            bool found = true;
+            for (unsigned i = 0; i < constraints::bytes_for_descriptor; i++) {
+                if (dv[offset + i] != std::byte{0}) {
+                    found = false;
+                    break;
+                }
+            }
+
+            if (found) {
+                dv.enable_write();
+                for (unsigned i = constraints::bytes_for_file_length; i < constraints::bytes_for_descriptor; i++) {
+                    dv[offset + i] = std::byte{255};
+                }
+                dv.push_buffer();
+                return index;
+            } else {
+                index++;
+                offset += constraints::bytes_for_descriptor;
+            }
+        }
+
+    }
 
 } //namespace lab_fs

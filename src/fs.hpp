@@ -26,11 +26,15 @@ namespace lab_fs {
             static constexpr std::size_t max_blocks_per_file = 3;
             static constexpr std::size_t max_filename_length = 15;
             static constexpr std::size_t oft_max_size = 16;
+            static constexpr std::size_t bytes_for_descriptor = bytes_for_file_length + max_blocks_per_file;
+
+            constraints() = delete;
         };
     private:
         class file_descriptor {
         public:
-            file_descriptor(std::size_t length, const std::array<std::size_t, constraints::max_blocks_per_file> &occupied_blocks);
+            file_descriptor(std::size_t length,
+                            const std::array<std::size_t, constraints::max_blocks_per_file> &occupied_blocks);
 
             std::size_t length;
             std::array<std::size_t, constraints::max_blocks_per_file> occupied_blocks;
@@ -41,6 +45,7 @@ namespace lab_fs {
             oft_entry(std::string filename, std::size_t descriptor_index);
 
             [[nodiscard]] std::size_t get_descriptor_index() const;
+
             [[nodiscard]] std::string get_filename() const;
 
             std::vector<std::byte> buffer;
@@ -58,9 +63,9 @@ namespace lab_fs {
         std::map<std::size_t, file_descriptor *> _descriptors_cache; // index of desc && file desc
         std::map<std::string, std::size_t> _descriptor_indexes_cache; //_filename && index of desc
 
-        file_descriptor *get_descriptor(std::size_t descriptor_index); //todo: implement
-        void *save_descriptor(std::size_t i, file_descriptor *descriptor); //todo: implement
-        int take_descriptor(); //todo: implement
+        auto get_descriptor(std::size_t index) -> file_descriptor *;
+        auto save_descriptor(std::size_t index, file_descriptor *descriptor) -> bool;
+        auto take_descriptor() -> int;
         int get_descriptor_index_from_dir_entry(const std::string& filename);
         int take_dir_entry(); // picks first free but read through all to verify there is no same file
         void save_dir_entry(std::size_t i, std::string filename, std::size_t descriptor_index);
