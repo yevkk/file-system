@@ -9,6 +9,7 @@ set(SRC_DIR ${TOP_DIR}/src)
 include_directories(${SRC_DIR})
 
 set(SRC_LIST
+        ${SRC_DIR}/io.hpp
         ${SRC_DIR}/fs.hpp
         ${SRC_DIR}/fs.cpp
         )
