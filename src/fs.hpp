@@ -1,5 +1,7 @@
 #pragma once
 
+#include <io.hpp>
+
 #include <vector>
 #include <array>
 #include <map>
@@ -9,33 +11,30 @@
 
 namespace lab_fs {
 
-    class io {
-    public:
-        io(std::size_t blocks_no, std::size_t block_size, std::vector<std::vector<std::byte>> &&disk);
-
-        void read_block(std::size_t i, std::vector<std::byte>::iterator dest);
-
-        void write_block(std::size_t i, std::vector<std::byte>::iterator src);
-
-        [[nodiscard]] std::size_t get_blocks_no() const;
-
-        [[nodiscard]] std::size_t get_block_size() const;
-
-    private:
-        std::size_t blocks_no;
-        std::size_t block_size;
-
-        std::vector<std::vector<std::byte>> ldisk;
+    enum init_result {
+        CREATED, RESTORED, FAILED
     };
 
     class file_system {
+    public:
+        struct constraints {
+            static constexpr std::size_t descriptive_blocks_no = 2;
+            static constexpr std::size_t bytes_for_file_length = 2;
+            static constexpr std::size_t max_blocks_per_file = 3;
+            static constexpr std::size_t max_filename_length = 15;
+            static constexpr std::size_t oft_max_size = 16;
+            static constexpr std::size_t bytes_for_descriptor = bytes_for_file_length + max_blocks_per_file;
+
+            constraints() = delete;
+        };
     private:
         class file_descriptor {
         public:
-            file_descriptor(std::size_t length, std::initializer_list<std::size_t> occupied_blocks);
+            file_descriptor(std::size_t length,
+                            const std::array<std::size_t, constraints::max_blocks_per_file> &occupied_blocks);
 
             std::size_t length;
-            std::array<std::size_t, 3> occupied_blocks;
+            std::array<std::size_t, constraints::max_blocks_per_file> occupied_blocks;
         };
 
         class oft_entry {
@@ -43,47 +42,40 @@ namespace lab_fs {
             oft_entry(std::string filename, std::size_t descriptor_index);
 
             [[nodiscard]] std::size_t get_descriptor_index() const;
+
             [[nodiscard]] std::string get_filename() const;
 
             std::vector<std::byte> buffer;
             std::size_t current_pos;
             bool modified;
         private:
-            std::size_t descriptor_index;
-            std::string filename;
+            std::size_t _descriptor_index;
+            std::string _filename;
         };
 
-        std::string filename;
-        io disk_io;
-        std::vector<bool> available_blocks;
-        std::vector<oft_entry *> oft;
-        std::map<std::size_t, file_descriptor *> descriptors_map;
-        std::map<std::string, std::size_t> descriptor_indexes_map;
+        std::string _filename;
+        io _io;
+        std::vector<bool> _bitmap;
+        std::vector<oft_entry *> _oft;
+        std::map<std::size_t, file_descriptor *> _descriptors_cache; // index of desc && file desc
+        std::map<std::string, std::size_t> _descriptor_indexes_cache; //_filename && index of desc
 
-        static constexpr std::size_t oft_max_size = 16;
-
-
-        file_descriptor *get_descriptor(std::size_t i); //todo: implement
-        void *write_descriptor(std::size_t i, file_descriptor *descriptor); //todo: implement
-        void *remove_dir_entry(std::size_t i); //todo: implement
+        auto get_descriptor(std::size_t index) -> file_descriptor *;
+        auto save_descriptor(std::size_t index, file_descriptor *descriptor) -> bool;
+        auto take_descriptor() -> int;
 
     public:
         file_system(std::string filename, io &&disk_io);
 
-        //todo: Declare here create, destroy, open, close, read, write, seek, directory...
+        static std::pair<file_system *, init_result> init(std::size_t cylinders_no,
+                                                          std::size_t surfaces_no,
+                                                          std::size_t sections_no,
+                                                          std::size_t section_length,
+                                                          const std::string &filename);
 
         void save();
+
+        //todo: Declare here create, destroy, open, close, read, write, seek, directory...
     };
-
-    enum init_result {
-        CREATED, RESTORED, FAILED
-    };
-
-    std::pair<file_system *, init_result> init(std::size_t cylinders_no,
-                                               std::size_t surfaces_no,
-                                               std::size_t sections_no,
-                                               std::size_t section_length,
-                                               const std::string &filename);
-
 
 } //namespace lab_fs
