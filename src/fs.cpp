@@ -103,15 +103,11 @@ namespace lab_fs {
                 return container;
             }
 
-            static std::optional<dir_entry> read_dir_entry(file_system* fs ,std::size_t i) {
-                if(i >= fs->max_files_quantity - 1){
-                    return std::nullopt;
-                }
-                
-                auto container = std::vector<std::byte>(dir_entry_size);
-                
+            static std::optional<dir_entry> read_dir_entry(file_system* fs ,std::size_t i) {                               
                 std::size_t pos = i * (dir_entry_size);
                 if(fs->lseek(0, pos) == SUCCESS) {
+                    auto container = std::vector<std::byte>(dir_entry_size);
+                    
                     // TODO: replace with (fs->read(0, container) == SUCCESS) or something like that
                     if(true){
                         return std::optional<dir_entry>{dir_entry(container)};
@@ -119,7 +115,7 @@ namespace lab_fs {
                         return std::nullopt;;
                     }
                 } else {
-                    return std::nullopt;;
+                    return std::nullopt;
                 }
             }
 
@@ -148,14 +144,21 @@ namespace lab_fs {
 
     // picks last free space and reads through all to verify there is no same file
     std::pair<std::size_t, fs_result> file_system::take_dir_entry(const std::string& filename) {
+        if (!_oft[0]->initialized){
+            return {0, SUCCESS};
+        }
+        
         std::size_t i = 0;
         int free = -1;
         while (true){
             auto dire_opt = utils::dir_entry::read_dir_entry(this,i);
             
             // looked through all dir entries and none of them is free
-            if (!dire_opt.has_value() && free == -1){
-                return {0, NO_SPACE};
+            if (!dire_opt.has_value()){
+                if (free == -1){
+                    return {0, NO_SPACE};
+                }
+                return {free, SUCCESS};
             }
             
             auto dire = dire_opt.value();
@@ -170,18 +173,13 @@ namespace lab_fs {
                 free = i;
             }
             ++i;
-        }
-        return {free, SUCCESS};
+        }        
     }  
 
-    bool file_system::save_dir_entry(std::size_t i, std::string filename, std::size_t descriptor_index){
-        if(i >= max_files_quantity - 1) {
-            return false;
-        }
-
-        auto data = utils::dir_entry{filename,std::byte{descriptor_index}}.convert();       
+    bool file_system::save_dir_entry(std::size_t i, std::string filename, std::size_t descriptor_index){       
         std::size_t pos = i * (sizeof(utils::dir_entry));
         if(lseek(0, pos) == SUCCESS) {
+            auto data = utils::dir_entry{filename,std::byte{descriptor_index}}.convert();
             if(write(0, data) == SUCCESS){
                 return true;
             } else {
@@ -279,6 +277,7 @@ namespace lab_fs {
                 }
             }
             ofte->initialized = true;
+            buffer = std::vector<std::byte>(_io.get_block_size(), std::byte{0});
         }
 
         while(true){
@@ -401,7 +400,7 @@ namespace lab_fs {
             //todo: consider meeting end of file?
         } else {
             result = CREATED;
-            disk[0][0] = std::byte{224}; // 224 = 1110000
+            disk[0][0] = std::byte{192}; // 192 = 11000000
 
             using constrs = file_system::constraints;
             for (auto i = constrs::bytes_for_file_length;
