@@ -15,7 +15,7 @@ namespace lab_fs {
         CREATED, RESTORED, FAILED
     };
     enum fs_result {
-        SUCCESS, EXISTS, NOSPACE, NOTFOUND, TOOBIG, INVALIDNAME
+        SUCCESS, EXISTS, NOSPACE, NOTFOUND, TOOBIG, INVALIDNAME, INVALIDPOS
     };
 
     class file_system {
@@ -38,6 +38,7 @@ namespace lab_fs {
         public:
             file_descriptor(std::size_t length,
                             const std::array<std::size_t, constraints::max_blocks_per_file> &occupied_blocks);
+            bool is_initialized() const;
 
             std::size_t length;
             std::array<std::size_t, constraints::max_blocks_per_file> occupied_blocks;
@@ -73,7 +74,8 @@ namespace lab_fs {
         int get_descriptor_index_from_dir_entry(const std::string& filename);
         std::pair<std::size_t, fs_result> take_dir_entry(const std::string& filename);
         bool save_dir_entry(std::size_t i, std::string filename, std::size_t descriptor_index);
-
+        bool allocate_block(file_descriptor *descriptor, std::size_t block_index);
+    
     public:
         file_system(std::string filename, io &&disk_io);
 
