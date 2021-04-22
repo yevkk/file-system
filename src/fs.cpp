@@ -74,39 +74,32 @@ namespace lab_fs {
             dir_entry(const dir_entry& d) = default;
 
             dir_entry(const std::string& filename, std::byte descriptor_index) :                   
-                    filename_{filename}, descriptor_index_{descriptor_index}  {}
+                    filename{filename}, descriptor_index{descriptor_index}  {}
 
             dir_entry(std::vector<std::byte>& container) {
+                filename = "";
                 for(int i = 0; i < file_system::constraints::max_filename_length; ++i){
                     if(container[i] == std::byte{0}){
                         break;
                     }
-                    filename_.push_back(char(container[i]));
+                    filename.push_back(char(container[i]));
                 }
-                descriptor_index_ = container[dir_entry_size-1];
-            }
-
-            std::string get_filename() const {
-                return filename_;
+                descriptor_index = container[dir_entry_size-1];
             }
 
             bool is_empty() const {
-                for(int i = 0; i < file_system::constraints::max_filename_length; ++i){
-                    if(filename_[i] != 0)
-                        return false;
-                }
-                return true;
+                return (filename == "") && (descriptor_index == std::byte{0});
             }
 
             std::vector<std::byte> convert() {
                 auto container = std::vector<std::byte>(dir_entry_size);
-                for(int i = 0; i < filename_.size() && i < file_system::constraints::max_filename_length; ++i){
-                    container[i] = std::byte{filename_[i]};
+                for(int i = 0; i < filename.size() && i < file_system::constraints::max_filename_length; ++i){
+                    container[i] = std::byte{filename[i]};
                 }
-                for(int i = filename_.size(); i < file_system::constraints::max_filename_length; ++i){
+                for(int i = filename.size(); i < file_system::constraints::max_filename_length; ++i){
                     container[i] = std::byte{0};
                 }
-                container[dir_entry_size-1] = descriptor_index_;
+                container[dir_entry_size-1] = descriptor_index;
                 return container;
             }
 
@@ -131,8 +124,8 @@ namespace lab_fs {
             }
 
         public:
-            std::string filename_;
-            std::byte descriptor_index_; 
+            std::string filename;
+            std::byte descriptor_index; 
         };
 
         
@@ -146,8 +139,8 @@ namespace lab_fs {
                 return -1;
             }
             auto dire = dire_opt.value();
-            if (dire.get_filename() == filename){
-                return int(dire.descriptor_index_);
+            if (dire.filename == filename){
+                return int(dire.descriptor_index);
             }
             ++i;
         }
@@ -162,13 +155,13 @@ namespace lab_fs {
             
             // looked through all dir entries and none of them is free
             if (!dire_opt.has_value() && free == -1){
-                return {0, NOSPACE};
+                return {0, NO_SPACE};
             }
             
             auto dire = dire_opt.value();
             
             // check if file has same name
-            if(dire.get_filename() == filename){
+            if(dire.filename == filename){
                 return {0, EXISTS};
             }
 
@@ -201,7 +194,7 @@ namespace lab_fs {
 
     fs_result file_system::create(const std::string& filename){
         if(filename.size() > constraints::max_filename_length){
-            return INVALIDNAME;
+            return INVALID_NAME;
         }
 
         auto result = take_dir_entry(filename);
@@ -212,7 +205,7 @@ namespace lab_fs {
         auto index = result.first;
         auto descriptor_index = take_descriptor();
         if(descriptor_index == -1)
-            return NOSPACE;
+            return NO_SPACE;
 
         save_dir_entry(index,filename,descriptor_index);
         return SUCCESS;
@@ -220,11 +213,11 @@ namespace lab_fs {
 
     std::pair<std::size_t, fs_result> file_system::open(const std::string& filename){       
         if(filename.size() > constraints::max_filename_length){
-            return {0,INVALIDNAME};
+            return {0,INVALID_NAME};
         }
         
         if (_oft.size() == constraints::oft_max_size){
-            return {0,NOSPACE};
+            return {0,NO_SPACE};
         }
         
         int index;
@@ -235,10 +228,10 @@ namespace lab_fs {
         } else {
             index = get_descriptor_index_from_dir_entry(filename);
             if(index == -1)
-                return {0,NOTFOUND};          
+                return {0,NOT_FOUND};          
         }
         get_descriptor(index);      
-        _oft.emplace_back(filename,index);    
+        _oft.emplace_back(new oft_entry{filename,index});    
         return {_oft.size()-1,SUCCESS};
     }
 
@@ -255,7 +248,7 @@ namespace lab_fs {
 
     fs_result file_system::write(std::size_t i, const std::vector<std::byte>& src){
         if (i > _oft.size()) {
-            return NOTFOUND;
+            return NOT_FOUND;
         }        
         if (src.size() == 0) {
             return SUCCESS;
@@ -270,7 +263,7 @@ namespace lab_fs {
         std::size_t current_block = ofte->current_pos / _io.get_block_size();
         
         if (ofte->current_pos == _io.get_block_size() * constraints::max_blocks_per_file) {
-            return INVALIDPOS;
+            return INVALID_POS;
         }
         if (!ofte->initialized){
             if(descriptor->is_initialized()){
@@ -282,7 +275,7 @@ namespace lab_fs {
                     }
                     changed = true;
                 } else {
-                    return NOSPACE;
+                    return NO_SPACE;
                 }
             }
             ofte->initialized = true;
@@ -340,7 +333,7 @@ namespace lab_fs {
                             if (changed){
                                 save_descriptor(ofte->get_descriptor_index(),descriptor);
                             }
-                            return NOSPACE;
+                            return NO_SPACE;
                         }
                     }
                 } 
@@ -354,7 +347,7 @@ namespace lab_fs {
                     if (changed){
                         save_descriptor(ofte->get_descriptor_index(),descriptor);
                     }
-                    return TOOBIG;
+                    return TOO_BIG;
                 }
             }      
         }
@@ -362,14 +355,14 @@ namespace lab_fs {
 
     fs_result file_system::lseek(std::size_t i, std::size_t pos){
         if (i > _oft.size()) {
-            return NOTFOUND;
+            return NOT_FOUND;
         }
         
         auto ofte = _oft[i];
         auto descriptor=  _descriptors_cache[ofte->get_descriptor_index()];       
         if (pos > descriptor->length)
         {
-            return INVALIDPOS;
+            return INVALID_POS;
         }
         
         std::size_t current_block = ofte->current_pos / _io.get_block_size();

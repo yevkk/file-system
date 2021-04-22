@@ -15,7 +15,7 @@ namespace lab_fs {
         CREATED, RESTORED, FAILED
     };
     enum fs_result {
-        SUCCESS, EXISTS, NOSPACE, NOTFOUND, TOOBIG, INVALIDNAME, INVALIDPOS
+        SUCCESS, EXISTS, NO_SPACE, NOT_FOUND, TOO_BIG, INVALID_NAME, INVALID_POS
     };
 
     class file_system {
