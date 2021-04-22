@@ -56,9 +56,9 @@ namespace lab_fs {
     }
 
     namespace utils {
-        struct dir_entry {
-            char filename_[file_system::constraints::max_filename_length];
-            std::byte descriptor_index_; 
+        class dir_entry {
+        public:
+            dir_entry(const dir_entry& d) = default;
 
             dir_entry(const std::string& filename, std::byte descriptor_index) :
                     descriptor_index_{descriptor_index}  
@@ -66,7 +66,14 @@ namespace lab_fs {
                 std::copy(filename.begin(),filename.begin() + file_system::constraints::max_filename_length, filename);
             }
 
-            std::string get_filename(){
+            dir_entry(std::vector<std::byte>& container){
+                std::byte* data = &container[0];
+                auto aux = reinterpret_cast<dir_entry*>(data);
+                std::copy(aux, aux + file_system::constraints::max_filename_length, this->filename_);
+                this->descriptor_index_ = aux->descriptor_index_;
+            }
+
+            std::string get_filename() {
                 return std::string(filename_);
             }
 
@@ -77,35 +84,45 @@ namespace lab_fs {
                 }
                 return true;
             }
-        };
 
-        std::optional<dir_entry> read_dir_entry(file_system* fs ,std::size_t i) {
-            if(i >= fs->max_files_quantity - 1){
-                return std::nullopt;
+            std::vector<std::byte> convert(){
+                auto aux = reinterpret_cast<std::byte*>(this);
+                auto container = std::vector<std::byte>();
+                container.insert(container.end(), aux, aux + sizeof(utils::dir_entry));
             }
-            
-            auto container = std::vector<std::byte>(sizeof(dir_entry));
-            
-            std::size_t pos = i * (sizeof(dir_entry));
-            if(fs->lseek(0, pos) == SUCCESS) {
-                // TODO: replace with (fs->read(0, container) == SUCCESS) or something like that
-                if(true){
-                    std::byte* data = &container[0];
-                    auto dire = reinterpret_cast<dir_entry*>(data);
-                    return std::optional<dir_entry>{*dire};
+
+            static std::optional<dir_entry> read_dir_entry(file_system* fs ,std::size_t i) {
+                if(i >= fs->max_files_quantity - 1){
+                    return std::nullopt;
+                }
+                
+                auto container = std::vector<std::byte>(sizeof(dir_entry));
+                
+                std::size_t pos = i * (sizeof(dir_entry));
+                if(fs->lseek(0, pos) == SUCCESS) {
+                    // TODO: replace with (fs->read(0, container) == SUCCESS) or something like that
+                    if(true){
+                        return std::optional<dir_entry>{dir_entry(container)};
+                    } else {
+                        return std::nullopt;;
+                    }
                 } else {
                     return std::nullopt;;
                 }
-            } else {
-                return std::nullopt;;
             }
-        }
+
+        public:
+            char filename_[file_system::constraints::max_filename_length];
+            std::byte descriptor_index_; 
+        };
+
+        
     }
 
     int file_system::get_descriptor_index_from_dir_entry(const std::string& filename){
         std::size_t i = 0;
         while (true){
-            auto dire_opt = utils::read_dir_entry(this,i);
+            auto dire_opt = utils::dir_entry::read_dir_entry(this,i);
             if (!dire_opt.has_value()){
                 return -1;
             }
@@ -118,22 +135,22 @@ namespace lab_fs {
     }
 
     // picks last free space and reads through all to verify there is no same file
-    int file_system::take_dir_entry(const std::string& filename) {
+    std::pair<std::size_t, fs_result> file_system::take_dir_entry(const std::string& filename) {
         std::size_t i = 0;
         int free = -1;
         while (true){
-            auto dire_opt = utils::read_dir_entry(this,i);
+            auto dire_opt = utils::dir_entry::read_dir_entry(this,i);
             
             // looked through all dir entries and none of them is free
             if (!dire_opt.has_value() && free == -1){
-                return -2;
+                return {0, NOSPACE};
             }
             
             auto dire = dire_opt.value();
             
             // check if file has same name
             if(dire.get_filename() == filename){
-                return -1;
+                return {0, EXISTS};
             }
 
             // remember empty slot
@@ -142,18 +159,15 @@ namespace lab_fs {
             }
             ++i;
         }
-        return free;
+        return {free, SUCCESS};
     }  
 
     bool file_system::save_dir_entry(std::size_t i, std::string filename, std::size_t descriptor_index){
-        if(i >= max_files_quantity - 1){
+        if(i >= max_files_quantity - 1) {
             return false;
         }
-        auto dire = utils::dir_entry{filename,std::byte{descriptor_index}};
-        auto aux = reinterpret_cast<std::byte*>(&dire);
-        auto data = std::vector<std::byte>();
-        data.insert(data.end(), aux, aux + sizeof(utils::dir_entry));
 
+        auto data = utils::dir_entry{filename,std::byte{descriptor_index}}.convert();       
         std::size_t pos = i * (sizeof(utils::dir_entry));
         if(lseek(0, pos) == SUCCESS) {
             if(write(0, data) == SUCCESS){
@@ -171,14 +185,12 @@ namespace lab_fs {
             return INVALIDNAME;
         }
 
-        auto index = take_dir_entry(filename);
-        if(index == -1) {
-            return EXISTS;
-        }
-        if(index == -2) {
-            return NOSPACE;
+        auto result = take_dir_entry(filename);
+        if (result.second != SUCCESS){
+            return result.second;
         }
         
+        auto index = result.first;
         auto descriptor_index = take_descriptor();
         if(descriptor_index == -1)
             return NOSPACE;

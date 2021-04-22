@@ -71,7 +71,7 @@ namespace lab_fs {
         auto save_descriptor(std::size_t index, file_descriptor *descriptor) -> bool;
         auto take_descriptor() -> int;
         int get_descriptor_index_from_dir_entry(const std::string& filename);
-        int take_dir_entry(const std::string& filename);
+        std::pair<std::size_t, fs_result> take_dir_entry(const std::string& filename);
         bool save_dir_entry(std::size_t i, std::string filename, std::size_t descriptor_index);
 
     public:
