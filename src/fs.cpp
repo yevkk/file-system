@@ -169,7 +169,7 @@ namespace lab_fs {
             if (dire.is_empty()) {
                 free = i;
             }
-            ++i;
+            i++;
         }
     }
 
