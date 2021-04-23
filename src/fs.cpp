@@ -71,7 +71,7 @@ namespace lab_fs {
     public:
         dir_entry(const dir_entry &d) = default;
 
-        dir_entry(const std::string &filename, std::byte descriptor_index) : filename{filename}, descriptor_index{descriptor_index} {}
+        dir_entry(std::string filename, std::byte descriptor_index) : filename{std::move(filename)}, descriptor_index{descriptor_index} {}
 
         dir_entry(std::vector<std::byte> &container) {
             filename = "";
