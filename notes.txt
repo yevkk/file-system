@@ -1,3 +1,0 @@
-bool write_dir_entry(std::string filename, std::size_t descriptor_index);
-std::size_t get_dir_entry(std::string filename); // -1 if there's none
-
