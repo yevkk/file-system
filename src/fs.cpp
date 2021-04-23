@@ -364,7 +364,7 @@ namespace lab_fs {
         std::size_t new_block = pos / _io.get_block_size();
         if (current_block != new_block && ofte->modified) {
             _io.write_block(current_block, ofte->buffer.begin());
-            _io.read_block(new_block, ofte->buffer.begin());
+            ofte->initialized = false;
             ofte->modified = false;
         }
         ofte->current_pos = pos;
