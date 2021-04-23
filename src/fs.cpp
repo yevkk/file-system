@@ -89,8 +89,8 @@ namespace lab_fs {
         }
 
         std::vector<std::byte> convert() {
-            auto container = std::vector<std::byte>(dir_entry_size);
-            for (int i = 0; i < filename.size() && i < file_system::constraints::max_filename_length; ++i) {
+            std::vector<std::byte> container(dir_entry_size);
+            for (int i = 0; i < filename.size(); ++i) {
                 container[i] = std::byte{filename[i]};
             }
             for (int i = filename.size(); i < file_system::constraints::max_filename_length; ++i) {
@@ -103,7 +103,7 @@ namespace lab_fs {
         static std::optional<dir_entry> read_dir_entry(file_system *fs, std::size_t i) {
             std::size_t pos = i * (dir_entry_size);
             if (fs->lseek(0, pos) == SUCCESS) {
-                auto container = std::vector<std::byte>(dir_entry_size);
+                std::vector<std::byte> container(dir_entry_size);
 
                 // TODO: replace with (fs->read(0, container) == SUCCESS) or something like that
                 if (true) {
@@ -260,9 +260,16 @@ namespace lab_fs {
         if (ofte->current_pos == _io.get_block_size() * constraints::max_blocks_per_file) {
             return INVALID_POS;
         }
-        if (!ofte->initialized) {
+        if (!ofte->initialized) { 
+            buffer = std::vector<std::byte>(_io.get_block_size(), std::byte{0});
             if (descriptor->is_initialized()) {
-                _io.read_block(descriptor->occupied_blocks[current_block], buffer.begin());
+                if (descriptor->occupied_blocks[current_block] != 0) {
+                    _io.read_block(descriptor->occupied_blocks[current_block], buffer.begin());
+                } else {
+                    if(!allocate_block(descriptor,current_block)) {
+                        return NO_SPACE;
+                    }
+                }
             } else {
                 if (allocate_block(descriptor, 0)) {
                     for (int i = 1; i < constraints::max_blocks_per_file; ++i) {
@@ -274,7 +281,6 @@ namespace lab_fs {
                 }
             }
             ofte->initialized = true;
-            buffer = std::vector<std::byte>(_io.get_block_size(), std::byte{0});
         }
 
         while (true) {
