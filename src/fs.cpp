@@ -174,7 +174,7 @@ namespace lab_fs {
     }
 
     bool file_system::save_dir_entry(std::size_t i, std::string filename, std::size_t descriptor_index) {
-        std::size_t pos = i * (sizeof(utils::dir_entry));
+        std::size_t pos = i * (utils::dir_entry::dir_entry_size);
         if (lseek(0, pos) == SUCCESS) {
             auto data = utils::dir_entry{filename, std::byte{descriptor_index}}.convert();
             if (write(0, data) == SUCCESS) {
