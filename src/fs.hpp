@@ -14,6 +14,9 @@ namespace lab_fs {
     enum init_result {
         CREATED, RESTORED, FAILED
     };
+    enum fs_result {
+        SUCCESS, EXISTS, NO_SPACE, NOT_FOUND, TOO_BIG, INVALID_NAME, INVALID_POS
+    };
 
     class file_system {
     public:
@@ -23,15 +26,19 @@ namespace lab_fs {
             static constexpr std::size_t max_blocks_per_file = 3;
             static constexpr std::size_t max_filename_length = 15;
             static constexpr std::size_t oft_max_size = 16;
-            static constexpr std::size_t bytes_for_descriptor = bytes_for_file_length + max_blocks_per_file;
-
+            static constexpr std::size_t bytes_for_descriptor = bytes_for_file_length + max_blocks_per_file;          
+            
             constraints() = delete;
         };
+        
+        const std::size_t max_files_quantity = constraints::max_blocks_per_file * _io.get_block_size() / (constraints::max_filename_length + 1);
+
     private:
         class file_descriptor {
         public:
             file_descriptor(std::size_t length,
                             const std::array<std::size_t, constraints::max_blocks_per_file> &occupied_blocks);
+            bool is_initialized() const;
 
             std::size_t length;
             std::array<std::size_t, constraints::max_blocks_per_file> occupied_blocks;
@@ -48,6 +55,7 @@ namespace lab_fs {
             std::vector<std::byte> buffer;
             std::size_t current_pos;
             bool modified;
+            bool initialized;
         private:
             std::size_t _descriptor_index;
             std::string _filename;
@@ -63,10 +71,19 @@ namespace lab_fs {
         auto get_descriptor(std::size_t index) -> file_descriptor *;
         auto save_descriptor(std::size_t index, file_descriptor *descriptor) -> bool;
         auto take_descriptor() -> int;
-
+        int get_descriptor_index_from_dir_entry(const std::string& filename);
+        std::pair<std::size_t, fs_result> take_dir_entry(const std::string& filename);
+        bool save_dir_entry(std::size_t i, std::string filename, std::size_t descriptor_index);
+        bool allocate_block(file_descriptor *descriptor, std::size_t block_index);
+    
     public:
         file_system(std::string filename, io &&disk_io);
 
+        //todo: Declare here create, destroy, open, close, read, write, seek, directory...
+        fs_result lseek(std::size_t i, std::size_t pos);
+        fs_result create(const std::string& filename);
+        std::pair<std::size_t, fs_result> open(const std::string& filename);
+        fs_result write(std::size_t i, const std::vector<std::byte>& src);
         static std::pair<file_system *, init_result> init(std::size_t cylinders_no,
                                                           std::size_t surfaces_no,
                                                           std::size_t sections_no,
