@@ -172,7 +172,7 @@ namespace lab_fs {
     }
 
     fs_result file_system::write(std::size_t i, const std::vector<std::byte> &src) {
-        if (i > _oft.size()) {
+        if (i >= _oft.size()) {
             return NOT_FOUND;
         }
         if (src.empty()) {
@@ -190,27 +190,9 @@ namespace lab_fs {
         if (ofte->current_pos == _io.get_block_size() * constraints::max_blocks_per_file) {
             return INVALID_POS;
         }
-        if (!ofte->initialized) {
-            buffer = std::vector<std::byte>(_io.get_block_size(), std::byte{0});
-            if (descriptor->is_initialized()) {
-                if (descriptor->occupied_blocks[current_block] != 0) {
-                    _io.read_block(descriptor->occupied_blocks[current_block], buffer.begin());
-                } else {
-                    if(!allocate_block(descriptor,current_block)) {
-                        return NO_SPACE;
-                    }
-                }
-            } else {
-                if (allocate_block(descriptor, 0)) {
-                    for (int i = 1; i < constraints::max_blocks_per_file; i++) {
-                        descriptor->occupied_blocks[i] = 0;
-                    }
-                    changed = true;
-                } else {
-                    return NO_SPACE;
-                }
-            }
-            ofte->initialized = true;
+
+        if (auto init_oft_res = initialize_oft_entry(ofte, current_block); init_oft_res != SUCCESS) {
+            return init_oft_res;
         }
 
         while (true) {
@@ -299,11 +281,68 @@ namespace lab_fs {
         std::size_t current_block = ofte->current_pos / _io.get_block_size();
         std::size_t new_block = pos / _io.get_block_size();
         if (current_block != new_block && ofte->modified) {
-            _io.write_block(current_block, ofte->buffer.begin());
+            _io.write_block(descriptor->occupied_blocks[current_block], ofte->buffer.begin());
             ofte->initialized = false;
             ofte->modified = false;
         }
         ofte->current_pos = pos;
+        return SUCCESS;
+    }
+
+    fs_result file_system::read(std::size_t i, std::vector<std::byte>::iterator mem_area, std::size_t count) {
+        if (i >= _oft.size()) {
+            return NOT_FOUND;
+        }
+
+        auto oft_entry = _oft[i];
+        while (count > 0) {
+            // end of file
+            if (oft_entry->current_pos == constraints::max_blocks_per_file * _io.get_block_size()) {
+                break;
+            }
+
+            // init block in oft entry
+            if (!oft_entry->initialized) {
+                const std::size_t block = oft_entry->current_pos / _io.get_block_size();
+                const auto res = initialize_oft_entry(oft_entry, block);
+
+                if (res != SUCCESS) {
+                    return res;
+                }
+            }
+
+            const std::size_t position_in_block = oft_entry->current_pos % _io.get_block_size();
+            const std::size_t n_bytes_to_copy = std::min(count, _io.get_block_size() - position_in_block);
+
+            std::copy(oft_entry->buffer.begin() + position_in_block,
+                      oft_entry->buffer.begin() + position_in_block + n_bytes_to_copy,
+                      mem_area);
+
+            oft_entry->current_pos += n_bytes_to_copy;
+            mem_area = mem_area + n_bytes_to_copy;
+            count -= n_bytes_to_copy;
+        }
+
+        return SUCCESS;
+    }
+
+
+    fs_result file_system::close(std::size_t i) {
+        if (i >= _oft.size()) {
+            return NOT_FOUND;
+        }
+        auto oft_entry = _oft[i];
+        const auto descriptor = get_descriptor(oft_entry->get_descriptor_index());
+
+        if (oft_entry->modified) {
+            // save
+            const std::size_t current_block = oft_entry->current_pos / _io.get_block_size();
+            _io.write_block(descriptor->occupied_blocks[current_block], oft_entry->buffer.begin());
+        }
+
+        delete _oft[i];
+        _oft.erase(_oft.begin() + i);
+
         return SUCCESS;
     }
 
