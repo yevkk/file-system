@@ -18,5 +18,9 @@ set(SRC_LIST
 set(LIB_NAME ${PROJECT_NAME}_core)
 add_library(${LIB_NAME} STATIC ${SRC_LIST})
 
-add_executable(file_system main.cpp)
+set (CLI_SRC_LIST
+        ${SRC_DIR}/fs_shell.hpp
+        )
+
+add_executable(file_system main.cpp ${CLI_SRC_LIST})
 target_link_libraries(file_system PRIVATE ${LIB_NAME})
