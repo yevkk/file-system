@@ -1,7 +1,7 @@
 #include <iostream>
 
-#include "fs.hpp"
+#include "fs_shell.hpp"
 
 int main() {
-
+    shell::run();
 }
