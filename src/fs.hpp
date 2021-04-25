@@ -40,7 +40,6 @@ namespace lab_fs {
                             const std::array<std::size_t, constraints::max_blocks_per_file> &occupied_blocks);
             bool is_initialized() const;
 
-            bool need_save = false;
             std::size_t length;
             std::array<std::size_t, constraints::max_blocks_per_file> occupied_blocks;
         };

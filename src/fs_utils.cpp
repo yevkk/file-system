@@ -58,8 +58,6 @@ namespace lab_fs {
         }
         dv.push_buffer();
 
-        descriptor->need_save = false;
-
         return true;
     }
 
@@ -260,7 +258,6 @@ namespace lab_fs {
             for (int i = 1; i < constraints::max_blocks_per_file; i++) {
                 descriptor->occupied_blocks[i] = 0;
             }
-            descriptor->need_save = true;
         } else {
             return NO_SPACE;
         }
