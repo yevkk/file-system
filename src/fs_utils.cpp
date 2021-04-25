@@ -58,6 +58,8 @@ namespace lab_fs {
         }
         dv.push_buffer();
 
+        descriptor->need_save = false;
+
         return true;
     }
 
@@ -137,8 +139,7 @@ namespace lab_fs {
                 if (fs->lseek(0, pos) == SUCCESS) {
                     std::vector<std::byte> container(dir_entry_size);
 
-                    // TODO: replace with (fs->read(0, container) == SUCCESS) or something like that
-                    if (true) {
+                    if (fs->read(0, container.begin(), utils::dir_entry::dir_entry_size) == SUCCESS) {
                         return std::optional<dir_entry>{dir_entry(container)};
                     } else {
                         return std::nullopt;

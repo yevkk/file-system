@@ -40,6 +40,7 @@ namespace lab_fs {
                             const std::array<std::size_t, constraints::max_blocks_per_file> &occupied_blocks);
             bool is_initialized() const;
 
+            bool need_save = false;
             std::size_t length;
             std::array<std::size_t, constraints::max_blocks_per_file> occupied_blocks;
         };
@@ -77,6 +78,9 @@ namespace lab_fs {
         auto save_dir_entry(std::size_t i, std::string filename, std::size_t descriptor_index) -> bool;
         auto allocate_block(file_descriptor *descriptor, std::size_t block_index) -> bool;
 
+        auto initialize_oft_entry(oft_entry* entry, std::size_t block) -> fs_result;
+        auto initialize_file_descriptor(file_descriptor* descriptor, std::size_t block) -> fs_result;
+
     public:
         file_system(std::string filename, io &&disk_io);
 
@@ -92,6 +96,8 @@ namespace lab_fs {
         auto create(const std::string& filename) -> fs_result;
         auto open(const std::string& filename) -> std::pair<std::size_t, fs_result>;
         auto write(std::size_t i, const std::vector<std::byte>& src) -> fs_result;
+        auto read(std::size_t i, std::vector<std::byte>::iterator mem_area, std::size_t count) -> fs_result;
+        auto close(std::size_t i) -> fs_result;
 
         //todo: Declare here destroy, close, read, directory...
     };
