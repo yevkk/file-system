@@ -65,8 +65,8 @@ namespace lab_fs {
         io _io;
         std::vector<bool> _bitmap;
         std::vector<oft_entry *> _oft;
-        std::map<std::size_t, file_descriptor *> _descriptors_cache; // (index of desc) -> file desc
-        std::map<std::string, std::size_t> _descriptor_indexes_cache; //_filename && index of desc
+        std::map<std::size_t, file_descriptor *> _descriptors_cache; // (index of desc) -> (file desc)
+        std::map<std::string, std::size_t> _descriptor_indexes_cache; // (_filename) -> (index of desc)
 
         auto get_descriptor(std::size_t index) -> file_descriptor *;
         auto save_descriptor(std::size_t index, file_descriptor *descriptor) -> bool;
