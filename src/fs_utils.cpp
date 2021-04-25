@@ -231,4 +231,40 @@ namespace lab_fs {
         return false;
     }
 
+    auto file_system::initialize_oft_entry(oft_entry* oft, std::size_t block) -> fs_result {
+        auto descriptor = _descriptors_cache[oft->get_descriptor_index()];
+
+        if (!oft->initialized) {
+            oft->buffer = std::vector<std::byte>(_io.get_block_size(), std::byte{0});
+            if (descriptor->is_initialized()) {
+                if (descriptor->occupied_blocks[block] != 0) {
+                    _io.read_block(descriptor->occupied_blocks[block], oft->buffer.begin());
+                } else {
+                    if(!allocate_block(descriptor, block)) {
+                        return NO_SPACE;
+                    }
+                }
+            } else {
+                if (auto res = initialize_file_descriptor(descriptor, block); res != SUCCESS) {
+                    return res;
+                }
+            }
+            oft->initialized = true;
+        }
+
+        return SUCCESS;
+    }
+
+    fs_result file_system::initialize_file_descriptor(file_descriptor* descriptor, std::size_t block) {
+        if (allocate_block(descriptor, 0)) {
+            for (int i = 1; i < constraints::max_blocks_per_file; i++) {
+                descriptor->occupied_blocks[i] = 0;
+            }
+            descriptor->need_save = true;
+        } else {
+            return NO_SPACE;
+        }
+        return SUCCESS;
+    }
+
 } //namespace lab_fs
