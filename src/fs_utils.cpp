@@ -244,6 +244,7 @@ namespace lab_fs {
                 }
             } else {
                 if (auto res = initialize_file_descriptor(descriptor, block); res != SUCCESS) {
+                    save_descriptor(oft->get_descriptor_index(), descriptor);
                     return res;
                 }
             }

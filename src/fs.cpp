@@ -305,7 +305,6 @@ namespace lab_fs {
             if (!oft_entry->initialized) {
                 const std::size_t block = oft_entry->current_pos / _io.get_block_size();
                 const auto res = initialize_oft_entry(oft_entry, block);
-                const auto descriptor = _descriptors_cache[oft_entry->get_descriptor_index()];
 
                 if (res != SUCCESS) {
                     return res;
