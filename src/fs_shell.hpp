@@ -32,7 +32,7 @@ public:
     shell() = delete;
 
     static void run() {
-        lab_fs::file_system *fs;
+        lab_fs::file_system *fs = nullptr;
         while (true) {
             std::string line;
             std::getline(std::cin, line);
@@ -47,6 +47,13 @@ public:
 
             if (cmd_pair.second != args.size()) {
                 std::cout << "Error: wrong arguments number, enter `help` to commands list\n";
+                continue;
+            }
+
+            if (fs == nullptr && !(cmd_pair.first == commands::INIT ||
+                                   cmd_pair.first == commands::HELP ||
+                                   cmd_pair.first == commands::EXIT)) {
+                std::cout << "Error: file system is not initialized\n";
                 continue;
             }
 
@@ -84,11 +91,29 @@ public:
                     break;
                 }
                 case commands::INIT: {
-                    std::cout << "i\n"; //todo: implement here
+                    auto res = lab_fs::file_system::init(std::stoull(args[1]),
+                                                         std::stoull(args[2]),
+                                                         std::stoull(args[3]),
+                                                         std::stoull(args[4]),
+                                                         args[5]);
+                    fs = res.first;
+                    switch (res.second) {
+                        case lab_fs::CREATED:
+                            std::cout << "disk initialized\n";
+                            break;
+                        case lab_fs::RESTORED:
+                            std::cout << "disk restored\n";
+                            break;
+                        default:
+                            break;
+                    }
                     break;
                 }
                 case commands::SAVE: {
-                    std::cout << "j\n"; //todo: implement here
+                    fs->save();
+                    std::cout << "disk saved\n";
+                    delete fs;
+                    fs = nullptr;
                     break;
                 }
                 case commands::HELP: {
@@ -129,3 +154,10 @@ const std::map<std::string, std::pair<shell::commands, std::uint8_t>> shell::com
         {"help", {shell::commands::HELP,    1}},
         {"exit", {shell::commands::EXIT,    1}}
 };
+
+#ifdef FS_SHELL_MAIN
+int main() {
+    shell::run();
+    return 0;
+}
+#endif

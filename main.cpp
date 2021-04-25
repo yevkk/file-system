@@ -1,7 +1,2 @@
-#include <iostream>
-
+#define FS_SHELL_MAIN
 #include "fs_shell.hpp"
-
-int main() {
-    shell::run();
-}
