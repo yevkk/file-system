@@ -11,10 +11,10 @@
 class shell {
 private:
     enum class commands {
-        CREATE = 1, DESTROY, OPEN, CLOSE, READ, WRITE, SEEK, DIR, INIT, SAVE, HELP, EXIT
+        CREATE, DESTROY, OPEN, CLOSE, READ, WRITE, SEEK, DIR, INIT, SAVE, HELP, EXIT
     };
 
-    static const std::map<std::string, commands> commands_map;
+    static const std::map<std::string, std::pair<commands, std::uint8_t>> commands_map;
 
     static std::vector<std::string> parse_args(const std::string &args_string) {
         std::vector<std::string> args;
@@ -39,11 +39,18 @@ public:
             auto args = parse_args(line);
 
             if (args.empty() || !commands_map.contains(args[0])) {
-                std::cout << "Error, enter `help` to commands list\n";
+                std::cout << "Error: wrong command, enter `help` to commands list\n";
                 continue;
             }
-            
-            switch (commands_map.find(args[0])->second) {
+
+            auto cmd_pair = commands_map.find(args[0])->second;
+
+            if (cmd_pair.second != args.size()) {
+                std::cout << "Error: wrong arguments number, enter `help` to commands list\n";
+                continue;
+            }
+
+            switch (cmd_pair.first) {
                 case commands::CREATE: {
                     std::cout << "a\n";
                     break;
@@ -108,17 +115,17 @@ public:
 };
 
 
-const std::map<std::string, shell::commands> shell::commands_map = {
-        {"cr",   shell::commands::CREATE},
-        {"de",   shell::commands::DESTROY},
-        {"op",   shell::commands::OPEN},
-        {"cl",   shell::commands::CLOSE},
-        {"rd",   shell::commands::READ},
-        {"wr",   shell::commands::WRITE},
-        {"sk",   shell::commands::SEEK},
-        {"dr",   shell::commands::DIR},
-        {"in",   shell::commands::INIT},
-        {"sv",   shell::commands::SAVE},
-        {"help", shell::commands::HELP},
-        {"exit", shell::commands::EXIT}
+const std::map<std::string, std::pair<shell::commands, std::uint8_t>> shell::commands_map = {
+        {"cr",   {shell::commands::CREATE, 0}},   //todo: set required args number
+        {"de",   {shell::commands::DESTROY, 0}},  //todo: set required args number
+        {"op",   {shell::commands::OPEN, 0}},     //todo: set required args number
+        {"cl",   {shell::commands::CLOSE, 0}},    //todo: set required args number
+        {"rd",   {shell::commands::READ, 0}},     //todo: set required args number
+        {"wr",   {shell::commands::WRITE, 0}},    //todo: set required args number
+        {"sk",   {shell::commands::SEEK, 0}},     //todo: set required args number
+        {"dr",   {shell::commands::DIR, 1}},
+        {"in",   {shell::commands::INIT, 6}},
+        {"sv",   {shell::commands::SAVE, 2}},
+        {"help", {shell::commands::HELP, 1}},
+        {"exit", {shell::commands::EXIT, 1}}
 };
