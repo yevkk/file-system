@@ -52,43 +52,43 @@ public:
 
             switch (cmd_pair.first) {
                 case commands::CREATE: {
-                    std::cout << "a\n";
+                    std::cout << "a\n"; //todo: implement here
                     break;
                 }
                 case commands::DESTROY: {
-                    std::cout << "b\n";
+                    std::cout << "b\n"; //todo: implement here
                     break;
                 }
                 case commands::OPEN: {
-                    std::cout << "c\n";
+                    std::cout << "c\n"; //todo: implement here
                     break;
                 }
                 case commands::CLOSE: {
-                    std::cout << "d\n";
+                    std::cout << "d\n"; //todo: implement here
                     break;
                 }
                 case commands::READ: {
-                    std::cout << "e\n";
+                    std::cout << "e\n"; //todo: implement here
                     break;
                 }
                 case commands::WRITE: {
-                    std::cout << "f\n";
+                    std::cout << "f\n"; //todo: implement here
                     break;
                 }
                 case commands::SEEK: {
-                    std::cout << "g\n";
+                    std::cout << "g\n"; //todo: implement here
                     break;
                 }
                 case commands::DIR: {
-                    std::cout << "h\n";
+                    std::cout << "h\n"; //todo: implement here
                     break;
                 }
                 case commands::INIT: {
-                    std::cout << "i\n";
+                    std::cout << "i\n"; //todo: implement here
                     break;
                 }
                 case commands::SAVE: {
-                    std::cout << "j\n";
+                    std::cout << "j\n"; //todo: implement here
                     break;
                 }
                 case commands::HELP: {
@@ -116,16 +116,16 @@ public:
 
 
 const std::map<std::string, std::pair<shell::commands, std::uint8_t>> shell::commands_map = {
-        {"cr",   {shell::commands::CREATE, 0}},   //todo: set required args number
+        {"cr",   {shell::commands::CREATE,  0}},  //todo: set required args number
         {"de",   {shell::commands::DESTROY, 0}},  //todo: set required args number
-        {"op",   {shell::commands::OPEN, 0}},     //todo: set required args number
-        {"cl",   {shell::commands::CLOSE, 0}},    //todo: set required args number
-        {"rd",   {shell::commands::READ, 0}},     //todo: set required args number
-        {"wr",   {shell::commands::WRITE, 0}},    //todo: set required args number
-        {"sk",   {shell::commands::SEEK, 0}},     //todo: set required args number
-        {"dr",   {shell::commands::DIR, 1}},
-        {"in",   {shell::commands::INIT, 6}},
-        {"sv",   {shell::commands::SAVE, 2}},
-        {"help", {shell::commands::HELP, 1}},
-        {"exit", {shell::commands::EXIT, 1}}
+        {"op",   {shell::commands::OPEN,    0}},  //todo: set required args number
+        {"cl",   {shell::commands::CLOSE,   0}},  //todo: set required args number
+        {"rd",   {shell::commands::READ,    0}},  //todo: set required args number
+        {"wr",   {shell::commands::WRITE,   0}},  //todo: set required args number
+        {"sk",   {shell::commands::SEEK,    0}},  //todo: set required args number
+        {"dr",   {shell::commands::DIR,     1}},
+        {"in",   {shell::commands::INIT,    6}},
+        {"sv",   {shell::commands::SAVE,    2}},
+        {"help", {shell::commands::HELP,    1}},
+        {"exit", {shell::commands::EXIT,    1}}
 };
