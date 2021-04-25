@@ -184,8 +184,8 @@ namespace lab_fs {
         std::size_t pos = ofte->current_pos % _io.get_block_size();
         std::size_t new_pos = pos;
         std::size_t offset = 0;
-        std::size_t current_block = ofte->current_pos / _io.get_block_size();
         bool changed = false;
+        std::size_t current_block = ofte->current_pos / _io.get_block_size();
 
         if (ofte->current_pos == _io.get_block_size() * constraints::max_blocks_per_file) {
             return INVALID_POS;
