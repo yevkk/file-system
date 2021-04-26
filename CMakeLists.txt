@@ -12,6 +12,7 @@ set(SRC_LIST
         ${SRC_DIR}/io.hpp
         ${SRC_DIR}/fs.hpp
         ${SRC_DIR}/fs.cpp
+        ${SRC_DIR}/fs_utils.cpp
         )
 
 set(LIB_NAME ${PROJECT_NAME}_core)

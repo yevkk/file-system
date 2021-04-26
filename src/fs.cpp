@@ -5,10 +5,9 @@
 
 namespace lab_fs {
 
-    file_system::file_descriptor::file_descriptor(std::size_t length,
-                                                const std::array<std::size_t, constraints::max_blocks_per_file> &occupied_blocks)
-        : length{length},
-        occupied_blocks{occupied_blocks} {}
+    file_system::file_descriptor::file_descriptor(std::size_t length, const std::array<std::size_t, constraints::max_blocks_per_file> &occupied_blocks) :
+            length{length},
+            occupied_blocks{occupied_blocks} {}
 
     bool file_system::file_descriptor::is_initialized() const {
         if (length > 0)
@@ -21,11 +20,12 @@ namespace lab_fs {
         return false;
     }
 
-    file_system::oft_entry::oft_entry(std::string filename, std::size_t descriptor_index) : _filename{std::move(filename)},
-                                                                                            _descriptor_index{descriptor_index},
-                                                                                            current_pos{0},
-                                                                                            modified{false},
-                                                                                            initialized{false} {}
+    file_system::oft_entry::oft_entry(std::string filename, std::size_t descriptor_index) :
+            _filename{std::move(filename)},
+            _descriptor_index{descriptor_index},
+            current_pos{0},
+            modified{false},
+            initialized{false} {}
 
     std::size_t file_system::oft_entry::get_descriptor_index() const {
         return _descriptor_index;
@@ -441,96 +441,224 @@ namespace lab_fs {
         }
     }
 
-    file_system::file_descriptor *file_system::get_descriptor(std::size_t index) {
-        if (_descriptors_cache.contains(index)) {
-            return _descriptors_cache[index];
+    fs_result file_system::create(const std::string &filename) {
+        if (filename.size() > constraints::max_filename_length) {
+            return INVALID_NAME;
         }
 
-        std::size_t offset = index * constraints::bytes_for_descriptor;
-        std::uint8_t block_i = 1 + offset / _io.get_block_size();
-        if (block_i >= constraints::descriptive_blocks_no) {
-            return nullptr;
+        auto result = take_dir_entry(filename);
+        if (result.second != SUCCESS) {
+            return result.second;
         }
 
-        utils::disk_view dv{_io, block_i, false};
-        if (dv.block_i() == constraints::descriptive_blocks_no - 1 && offset % _io.get_block_size() > _io.get_block_size() - constraints::bytes_for_descriptor) {
-            return nullptr;
+        auto index = result.first;
+        auto descriptor_index = take_descriptor();
+        if (descriptor_index == -1)
+            return NO_SPACE;
+
+        save_dir_entry(index, filename, descriptor_index);
+        return SUCCESS;
+    }
+
+    std::pair<std::size_t, fs_result> file_system::open(const std::string &filename) {
+        if (filename.size() > constraints::max_filename_length) {
+            return {0, INVALID_NAME};
         }
 
-        std::size_t length = 0;
-        std::array<std::size_t, constraints::max_blocks_per_file> occupied_blocks{};
-        for (unsigned i = 0; i < constraints::bytes_for_file_length; i++, offset++) {
-            length <<= 8;
-            length += std::to_integer<std::size_t>(dv[offset]);
-        }
-        for (unsigned i = 0; i < constraints::max_blocks_per_file; i++, offset++) {
-            occupied_blocks[i] = std::to_integer<std::size_t>(dv[offset]);
+        if (_oft.size() == constraints::oft_max_size) {
+            return {0, NO_SPACE};
         }
 
-        if (!(length == 0 && std::all_of(occupied_blocks.begin(), occupied_blocks.end(), [](const auto &value) { return value == 0; }))) {
-            auto fd = new file_descriptor(length, occupied_blocks);
-            _descriptors_cache[index] = fd;
-            return fd;
+        int index;
+
+        // check if file info is already cached
+        if (_descriptor_indexes_cache.contains(filename)) {
+            index = _descriptor_indexes_cache[filename];
         } else {
-            return nullptr;
+            index = get_descriptor_index_from_dir_entry(filename);
+            if (index == -1)
+                return {0, NOT_FOUND};
         }
+        get_descriptor(index);
+        _oft.emplace_back(new oft_entry{filename, (std::size_t) index});
+        return {_oft.size() - 1, SUCCESS};
     }
 
-    bool file_system::save_descriptor(std::size_t index, file_descriptor *descriptor) {
-        std::size_t offset = index * constraints::bytes_for_descriptor;
-        std::uint8_t block_i = 1 + offset / _io.get_block_size();
-        if (block_i >= constraints::descriptive_blocks_no) {
-            return false;
+    fs_result file_system::write(std::size_t i, const std::vector<std::byte> &src) {
+        if (i >= _oft.size()) {
+            return NOT_FOUND;
         }
-
-        utils::disk_view dv{_io, block_i, true};
-        if (dv.block_i() == constraints::descriptive_blocks_no - 1 && offset % _io.get_block_size() > _io.get_block_size() - constraints::bytes_for_descriptor) {
-            return false;
+        if (src.empty()) {
+            return SUCCESS;
         }
-
-        std::size_t length = descriptor->length;
-        for (unsigned i = 0; i < constraints::bytes_for_file_length; i++, offset++) {
-            dv[offset] = std::byte{(std::uint8_t)(length % 256)};
-            length >>= 8;
-        }
-        for (unsigned i = 0; i < constraints::max_blocks_per_file; i++, offset++) {
-            dv[offset] = std::byte{(std::uint8_t)descriptor->occupied_blocks[i]};
-        }
-        dv.push_buffer();
-
-        return true;
-    }
-
-    int file_system::take_descriptor() {
-        int index = 0;
+        auto ofte = _oft[i];
+        auto buffer = ofte->buffer;
+        auto descriptor = _descriptors_cache[ofte->get_descriptor_index()];
+        std::size_t pos = ofte->current_pos % _io.get_block_size();
+        std::size_t new_pos = pos;
         std::size_t offset = 0;
-        utils::disk_view dv{_io, 1, false};
+        bool changed = false;
+        std::size_t current_block = ofte->current_pos / _io.get_block_size();
+
+        if (ofte->current_pos == _io.get_block_size() * constraints::max_blocks_per_file) {
+            return INVALID_POS;
+        }
+
+        if (auto init_oft_res = initialize_oft_entry(ofte, current_block); init_oft_res != SUCCESS) {
+            return init_oft_res;
+        }
 
         while (true) {
-            if (dv.block_i() == constraints::descriptive_blocks_no - 1 && offset % _io.get_block_size() > _io.get_block_size() - constraints::bytes_for_descriptor) {
-                return -1;
-            }
+            // fits within current block
+            if (src.size() - offset <= _io.get_block_size() - pos) {
+                std::copy(src.begin() + offset, src.end(), buffer.begin() + pos);
+                ofte->modified = true;
+                new_pos = pos + src.size() - offset;
+                ofte->current_pos = current_block * _io.get_block_size() + new_pos;
 
-            bool found = true;
-            for (unsigned i = 0; i < constraints::bytes_for_descriptor; i++) {
-                if (dv[offset + i] != std::byte{0}) {
-                    found = false;
-                    break;
+                if (descriptor->length < current_block * _io.get_block_size() + new_pos) {
+                    descriptor->length = current_block * _io.get_block_size() + new_pos;
+                    changed = true;
                 }
-            }
 
-            if (found) {
-                dv.enable_write();
-                for (unsigned i = constraints::bytes_for_file_length; i < constraints::bytes_for_descriptor; i++) {
-                    dv[offset + i] = std::byte{255};
+                if (changed) {
+                    save_descriptor(ofte->get_descriptor_index(), descriptor);
                 }
-                dv.push_buffer();
-                return index;
-            } else {
-                index++;
-                offset += constraints::bytes_for_descriptor;
+                return SUCCESS;
+            }
+            // src would be split between couple blocks
+            else {
+                auto part = _io.get_block_size() - pos;
+                std::copy(src.begin() + offset, src.begin() + offset + part, buffer.begin() + pos);
+                offset += part;
+                new_pos = pos + part;
+
+                //save changes to disk
+                _io.write_block(descriptor->occupied_blocks[current_block], buffer.begin());
+                ofte->modified = false;
+
+                // check if there is space to continue
+                if (current_block < constraints::max_blocks_per_file - 1) {
+                    current_block++;
+                    // try to read next allocated block
+                    if (descriptor->occupied_blocks[current_block] != 0) {
+                        _io.read_block(descriptor->occupied_blocks[current_block], buffer.begin());
+                        pos = 0;
+                    }
+                    // try to allocate new block
+                    else {
+                        if (allocate_block(descriptor, current_block)) {
+                            changed = true;
+                            std::fill(buffer.begin(), buffer.end(), std::byte(0));
+                        } else {
+                            ofte->current_pos = current_block * _io.get_block_size();
+                            if (descriptor->length < current_block * _io.get_block_size()) {
+                                descriptor->length = current_block * _io.get_block_size();
+                                changed = true;
+                            }
+
+                            if (changed) {
+                                save_descriptor(ofte->get_descriptor_index(), descriptor);
+                            }
+                            return NO_SPACE;
+                        }
+                    }
+                }
+                // file has reached the max size
+                else {
+                    if (descriptor->length < constraints::max_blocks_per_file * _io.get_block_size()) {
+                        descriptor->length = constraints::max_blocks_per_file * _io.get_block_size();
+                        changed = true;
+                    }
+                    ofte->current_pos = descriptor->length;
+                    if (changed) {
+                        save_descriptor(ofte->get_descriptor_index(), descriptor);
+                    }
+                    return TOO_BIG;
+                }
             }
         }
     }
+
+    fs_result file_system::lseek(std::size_t i, std::size_t pos) {
+        if (i > _oft.size()) {
+            return NOT_FOUND;
+        }
+
+        auto ofte = _oft[i];
+        auto descriptor = get_descriptor(ofte->get_descriptor_index());
+        if (pos > descriptor->length) {
+            return INVALID_POS;
+        }
+
+        std::size_t current_block = ofte->current_pos / _io.get_block_size();
+        std::size_t new_block = pos / _io.get_block_size();
+        if (current_block != new_block && ofte->modified) {
+            _io.write_block(descriptor->occupied_blocks[current_block], ofte->buffer.begin());
+            ofte->initialized = false;
+            ofte->modified = false;
+        }
+        ofte->current_pos = pos;
+        return SUCCESS;
+    }
+
+    fs_result file_system::read(std::size_t i, std::vector<std::byte>::iterator mem_area, std::size_t count) {
+        if (i >= _oft.size()) {
+            return NOT_FOUND;
+        }
+
+        auto oft_entry = _oft[i];
+        while (count > 0) {
+            // end of file
+            if (oft_entry->current_pos == constraints::max_blocks_per_file * _io.get_block_size()) {
+                break;
+            }
+
+            // init block in oft entry
+            if (!oft_entry->initialized) {
+                const std::size_t block = oft_entry->current_pos / _io.get_block_size();
+                const auto res = initialize_oft_entry(oft_entry, block);
+
+                if (res != SUCCESS) {
+                    return res;
+                }
+            }
+
+            const std::size_t position_in_block = oft_entry->current_pos % _io.get_block_size();
+            const std::size_t n_bytes_to_copy = std::min(count, _io.get_block_size() - position_in_block);
+
+            std::copy(oft_entry->buffer.begin() + position_in_block,
+                      oft_entry->buffer.begin() + position_in_block + n_bytes_to_copy,
+                      mem_area);
+
+            oft_entry->current_pos += n_bytes_to_copy;
+            mem_area = mem_area + n_bytes_to_copy;
+            count -= n_bytes_to_copy;
+        }
+
+        return SUCCESS;
+    }
+
+
+    fs_result file_system::close(std::size_t i) {
+        if (i >= _oft.size()) {
+            return NOT_FOUND;
+        }
+        auto oft_entry = _oft[i];
+        const auto descriptor = get_descriptor(oft_entry->get_descriptor_index());
+
+        if (oft_entry->modified) {
+            // save
+            const std::size_t current_block = oft_entry->current_pos / _io.get_block_size();
+            _io.write_block(descriptor->occupied_blocks[current_block], oft_entry->buffer.begin());
+        }
+
+        delete _oft[i];
+        _oft.erase(_oft.begin() + i);
+
+        return SUCCESS;
+    }
+
+    //todo: implement here destroy, close, read, directory...
 
 }  //namespace lab_fs
