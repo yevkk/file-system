@@ -203,14 +203,13 @@ namespace lab_fs {
 
         file_descriptor* descriptor = get_descriptor(descriptor_index);
 
-        // Step 1: clear caches
+        // clear caches
         _descriptors_cache.erase(descriptor_index);
         _descriptor_indexes_cache.erase(filename);
 
 
-        // Step 2: clear io
-
-        // Step 2.1: clear memory on disk
+        // clear io: memory and descriptor
+        // clear memory on disk
         for (std::size_t i = 0; i < descriptor->length; ++i) {
             utils::disk_view dv{_io, (std::uint8_t) descriptor->occupied_blocks[i], true};
 
@@ -221,7 +220,7 @@ namespace lab_fs {
             dv.push_buffer();
         }
 
-        // Step 2.2: clear memory of descriptor
+        // clear descriptor
         std::size_t offset = descriptor_index * constraints::bytes_for_descriptor;
         const std::uint8_t block_i = 1 + offset / _io.get_block_size();
         utils::disk_view dv{_io, block_i, true};
