@@ -35,7 +35,7 @@ namespace lab_fs {
         return _filename;
     }
 
-    file_system::file_system(std::string filename, io &&disk_io) :
+    file_system::file_system(std::string filename, io &&disk_io) : 
             _filename{std::move(filename)},
             _io{disk_io},
             _bitmap(disk_io.get_blocks_no()) {
@@ -93,7 +93,7 @@ namespace lab_fs {
 
             using constrs = file_system::constraints;
             for (auto i = constrs::bytes_for_file_length;
-                 i < constrs::bytes_for_file_length + constrs::max_blocks_per_file; i++) {
+                i < constrs::bytes_for_file_length + constrs::max_blocks_per_file; i++) {
                 disk[1][i] = std::byte{255};
             }
         }
@@ -152,6 +152,12 @@ namespace lab_fs {
             return {0, INVALID_NAME};
         }
 
+        for (auto &e : _oft) {
+            if (e->get_filename() == filename) {
+                return {0, ALREADY_OPENED};
+            }
+        }
+
         if (_oft.size() == constraints::oft_max_size) {
             return {0, NO_SPACE};
         }
@@ -179,7 +185,6 @@ namespace lab_fs {
             return SUCCESS;
         }
         auto ofte = _oft[i];
-        auto buffer = ofte->buffer;
         auto descriptor = _descriptors_cache[ofte->get_descriptor_index()];
         std::size_t pos = ofte->current_pos % _io.get_block_size();
         std::size_t new_pos = pos;
@@ -198,7 +203,7 @@ namespace lab_fs {
         while (true) {
             // fits within current block
             if (src.size() - offset <= _io.get_block_size() - pos) {
-                std::copy(src.begin() + offset, src.end(), buffer.begin() + pos);
+                std::copy(src.begin() + offset, src.end(), ofte->buffer.begin() + pos);
                 ofte->modified = true;
                 new_pos = pos + src.size() - offset;
                 ofte->current_pos = current_block * _io.get_block_size() + new_pos;
@@ -216,12 +221,12 @@ namespace lab_fs {
             // src would be split between couple blocks
             else {
                 auto part = _io.get_block_size() - pos;
-                std::copy(src.begin() + offset, src.begin() + offset + part, buffer.begin() + pos);
+                std::copy(src.begin() + offset, src.begin() + offset + part, ofte->buffer.begin() + pos);
                 offset += part;
                 new_pos = pos + part;
 
                 //save changes to disk
-                _io.write_block(descriptor->occupied_blocks[current_block], buffer.begin());
+                _io.write_block(descriptor->occupied_blocks[current_block], ofte->buffer.begin());
                 ofte->modified = false;
 
                 // check if there is space to continue
@@ -229,14 +234,14 @@ namespace lab_fs {
                     current_block++;
                     // try to read next allocated block
                     if (descriptor->occupied_blocks[current_block] != 0) {
-                        _io.read_block(descriptor->occupied_blocks[current_block], buffer.begin());
+                        _io.read_block(descriptor->occupied_blocks[current_block], ofte->buffer.begin());
                         pos = 0;
                     }
                     // try to allocate new block
                     else {
                         if (allocate_block(descriptor, current_block)) {
                             changed = true;
-                            std::fill(buffer.begin(), buffer.end(), std::byte(0));
+                            std::fill(ofte->buffer.begin(), ofte->buffer.end(), std::byte(0));
                         } else {
                             ofte->current_pos = current_block * _io.get_block_size();
                             if (descriptor->length < current_block * _io.get_block_size()) {
@@ -268,7 +273,7 @@ namespace lab_fs {
     }
 
     fs_result file_system::lseek(std::size_t i, std::size_t pos) {
-        if (i > _oft.size()) {
+        if (i >= _oft.size()) {
             return NOT_FOUND;
         }
 
