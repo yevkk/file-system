@@ -15,7 +15,7 @@ namespace lab_fs {
         CREATED, RESTORED, FAILED
     };
     enum fs_result {
-        SUCCESS, EXISTS, NO_SPACE, NOT_FOUND, TOO_BIG, INVALID_NAME, INVALID_POS
+        SUCCESS, EXISTS, NO_SPACE, NOT_FOUND, TOO_BIG, INVALID_NAME, INVALID_POS, ALREADY_OPENED
     };
 
     class file_system {
@@ -26,11 +26,10 @@ namespace lab_fs {
             static constexpr std::size_t max_blocks_per_file = 3;
             static constexpr std::size_t max_filename_length = 15;
             static constexpr std::size_t oft_max_size = 16;
-            static constexpr std::size_t bytes_for_descriptor = bytes_for_file_length + max_blocks_per_file;
-
+            static constexpr std::size_t bytes_for_descriptor = bytes_for_file_length + max_blocks_per_file;          
+            
             constraints() = delete;
         };
-
         const std::size_t max_files_quantity = constraints::max_blocks_per_file * _io.get_block_size() / (constraints::max_filename_length + 1);
 
     private:
