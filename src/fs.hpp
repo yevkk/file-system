@@ -15,7 +15,7 @@ namespace lab_fs {
         CREATED, RESTORED, FAILED
     };
     enum fs_result {
-        SUCCESS, EXISTS, NO_SPACE, NOT_FOUND, TOO_BIG, INVALID_NAME, INVALID_POS
+        SUCCESS, EXISTS, NO_SPACE, NOT_FOUND, TOO_BIG, INVALID_NAME, INVALID_POS, ALREADY_OPENED
     };
 
     class file_system {
@@ -82,11 +82,6 @@ namespace lab_fs {
     public:
         file_system(std::string filename, io &&disk_io);
 
-        //todo: Declare here create, destroy, open, close, read, write, seek, directory...
-        fs_result lseek(std::size_t i, std::size_t pos);
-        fs_result create(const std::string& filename);
-        std::pair<std::size_t, fs_result> open(const std::string& filename);
-        fs_result write(std::size_t i, const std::vector<std::byte>& src);
         static std::pair<file_system *, init_result> init(std::size_t cylinders_no,
                                                           std::size_t surfaces_no,
                                                           std::size_t sections_no,

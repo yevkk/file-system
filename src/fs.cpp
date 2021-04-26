@@ -35,9 +35,10 @@ namespace lab_fs {
         return _filename;
     }
 
-    file_system::file_system(std::string filename, io &&disk_io) : _filename{std::move(filename)},
-                                                                _io{disk_io},
-                                                                _bitmap(disk_io.get_blocks_no()) {
+    file_system::file_system(std::string filename, io &&disk_io) : 
+            _filename{std::move(filename)},
+            _io{disk_io},
+            _bitmap(disk_io.get_blocks_no()) {
         std::vector<std::byte> buffer(disk_io.get_block_size());
 
         disk_io.read_block(0, buffer.begin());
