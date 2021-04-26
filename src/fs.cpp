@@ -225,8 +225,8 @@ namespace lab_fs {
         const std::uint8_t block_i = 1 + offset / _io.get_block_size();
         utils::disk_view dv{_io, block_i, true};
 
-        for (unsigned i = 0; i < constraints::bytes_for_descriptor; i++, offset++) {
-            dv[offset] = std::byte{0};
+        for (std::size_t i = offset; i < offset + constraints::bytes_for_descriptor; ++i) {
+            dv[i] = std::byte{0};
         }
 
         dv.push_buffer();
