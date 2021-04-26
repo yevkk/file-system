@@ -177,6 +177,64 @@ namespace lab_fs {
         return {_oft.size() - 1, SUCCESS};
     }
 
+    fs_result file_system::destroy(const std::string& filename) {
+        int descriptor_index = -1;
+
+        // remove oft entry
+        for (int i = 0; i < _oft.size(); ++i) {
+            if (_oft[i]->get_filename() == filename) {
+                descriptor_index = _oft[i]->get_descriptor_index();
+                delete _oft[i];
+                _oft.erase(_oft.begin() + i);
+            }
+        }
+
+        // file wasn't opened
+        if (descriptor_index == -1) {
+            // check if file info is already cached
+            if (auto it = _descriptor_indexes_cache.find(filename); it != _descriptor_indexes_cache.end()) {
+                descriptor_index = it->second;
+            } else {
+                descriptor_index = get_descriptor_index_from_dir_entry(filename);
+                if (descriptor_index == -1)
+                    return NOT_FOUND;
+            }
+        }
+
+        file_descriptor* descriptor = get_descriptor(descriptor_index);
+
+        // Step 1: clear caches
+        _descriptors_cache.erase(descriptor_index);
+        _descriptor_indexes_cache.erase(filename);
+
+
+        // Step 2: clear io
+
+        // Step 2.1: clear memory on disk
+        for (std::size_t i = 0; i < descriptor->length; ++i) {
+            utils::disk_view dv{_io, (std::uint8_t) descriptor->occupied_blocks[i], true};
+
+            for (std::size_t index_in_block = 0; index_in_block < _io.get_block_size(); ++index_in_block) {
+                dv[index_in_block] = std::byte{0};
+            }
+
+            dv.push_buffer();
+        }
+
+        // Step 2.2: clear memory of descriptor
+        std::size_t offset = descriptor_index * constraints::bytes_for_descriptor;
+        const std::uint8_t block_i = 1 + offset / _io.get_block_size();
+        utils::disk_view dv{_io, block_i, true};
+
+        for (unsigned i = 0; i < constraints::bytes_for_descriptor; i++, offset++) {
+            dv[offset] = std::byte{0};
+        }
+
+        dv.push_buffer();
+
+        return SUCCESS;
+    }
+
     fs_result file_system::write(std::size_t i, const std::vector<std::byte> &src) {
         if (i >= _oft.size()) {
             return NOT_FOUND;
