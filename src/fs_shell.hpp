@@ -39,21 +39,21 @@ public:
             auto args = parse_args(line);
 
             if (args.empty() || !commands_map.contains(args[0])) {
-                std::cout << "Error: wrong command, enter `help` to commands list\n";
+                std::cout << "error: wrong command, enter `help` to commands list\n";
                 continue;
             }
 
             auto cmd_pair = commands_map.find(args[0])->second;
 
             if (cmd_pair.second != args.size()) {
-                std::cout << "Error: wrong arguments number, enter `help` to commands list\n";
+                std::cout << "error: wrong arguments number, enter `help` to commands list\n";
                 continue;
             }
 
             if (fs == nullptr && !(cmd_pair.first == commands::INIT ||
                                    cmd_pair.first == commands::HELP ||
                                    cmd_pair.first == commands::EXIT)) {
-                std::cout << "Error: file system is not initialized\n";
+                std::cout << "error: file system is not initialized\n";
                 continue;
             }
 
@@ -91,6 +91,10 @@ public:
                     break;
                 }
                 case commands::INIT: {
+                    if (fs != nullptr) {
+                        std::cout << "error: file system is already loaded; save current file system to create/restore another one";
+                        break;
+                    }
                     auto res = lab_fs::file_system::init(std::stoull(args[1]),
                                                          std::stoull(args[2]),
                                                          std::stoull(args[3]),
@@ -141,13 +145,13 @@ public:
 
 
 const std::map<std::string, std::pair<shell::commands, std::uint8_t>> shell::commands_map = {
-        {"cr",   {shell::commands::CREATE,  0}},  //todo: set required args number
-        {"de",   {shell::commands::DESTROY, 0}},  //todo: set required args number
-        {"op",   {shell::commands::OPEN,    0}},  //todo: set required args number
-        {"cl",   {shell::commands::CLOSE,   0}},  //todo: set required args number
-        {"rd",   {shell::commands::READ,    0}},  //todo: set required args number
-        {"wr",   {shell::commands::WRITE,   0}},  //todo: set required args number
-        {"sk",   {shell::commands::SEEK,    0}},  //todo: set required args number
+        {"cr",   {shell::commands::CREATE,  1}},  //todo: set required args number
+        {"de",   {shell::commands::DESTROY, 1}},  //todo: set required args number
+        {"op",   {shell::commands::OPEN,    1}},  //todo: set required args number
+        {"cl",   {shell::commands::CLOSE,   1}},  //todo: set required args number
+        {"rd",   {shell::commands::READ,    1}},  //todo: set required args number
+        {"wr",   {shell::commands::WRITE,   1}},  //todo: set required args number
+        {"sk",   {shell::commands::SEEK,    1}},  //todo: set required args number
         {"dr",   {shell::commands::DIR,     1}},
         {"in",   {shell::commands::INIT,    6}},
         {"sv",   {shell::commands::SAVE,    2}},
