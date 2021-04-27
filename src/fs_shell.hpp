@@ -10,11 +10,28 @@
 
 class shell {
 private:
-    enum class commands {
-        CREATE, DESTROY, OPEN, CLOSE, READ, WRITE, SEEK, DIR, INIT, SAVE, HELP, EXIT
+    class command {
+    public:
+        enum class actions {
+            CREATE, DESTROY, OPEN, CLOSE, READ, WRITE, SEEK, DIR, INIT, SAVE, HELP, EXIT
+        };
+
+        command(actions action, unsigned args_min_no, unsigned args_max_no) :
+            action{action},
+            args_min_no{args_min_no},
+            args_max_no{args_max_no} {};
+
+        command(actions action, unsigned args_min_no) :
+                action{action},
+                args_min_no{args_min_no},
+                args_max_no{args_min_no} {};
+
+        actions action;
+        unsigned args_min_no;
+        unsigned args_max_no;
     };
 
-    static const std::map<std::string, std::pair<commands, std::uint8_t>> commands_map;
+    static const std::map<std::string, const command> commands_map;
 
     static std::vector<std::string> parse_args(const std::string &args_string) {
         std::vector<std::string> args;
@@ -43,54 +60,54 @@ public:
                 continue;
             }
 
-            auto cmd_pair = commands_map.find(args[0])->second;
+            auto cmd = commands_map.find(args[0])->second;
 
-            if (cmd_pair.second != args.size()) {
+            if (args.size() >= cmd.args_min_no && args.size() <= cmd.args_max_no) {
                 std::cout << "error: wrong arguments number, enter `help` to commands list\n";
                 continue;
             }
 
-            if (fs == nullptr && !(cmd_pair.first == commands::INIT ||
-                                   cmd_pair.first == commands::HELP ||
-                                   cmd_pair.first == commands::EXIT)) {
+            if (fs == nullptr && !(cmd.action == command::actions::INIT ||
+                                   cmd.action == command::actions::HELP ||
+                                   cmd.action == command::actions::EXIT)) {
                 std::cout << "error: file system is not initialized\n";
                 continue;
             }
 
-            switch (cmd_pair.first) {
-                case commands::CREATE: {
+            switch (cmd.action) {
+                case command::actions::CREATE: {
                     std::cout << "a\n"; //todo: implement here
                     break;
                 }
-                case commands::DESTROY: {
+                case command::actions::DESTROY: {
                     std::cout << "b\n"; //todo: implement here
                     break;
                 }
-                case commands::OPEN: {
+                case command::actions::OPEN: {
                     std::cout << "c\n"; //todo: implement here
                     break;
                 }
-                case commands::CLOSE: {
+                case command::actions::CLOSE: {
                     std::cout << "d\n"; //todo: implement here
                     break;
                 }
-                case commands::READ: {
+                case command::actions::READ: {
                     std::cout << "e\n"; //todo: implement here
                     break;
                 }
-                case commands::WRITE: {
+                case command::actions::WRITE: {
                     std::cout << "f\n"; //todo: implement here
                     break;
                 }
-                case commands::SEEK: {
+                case command::actions::SEEK: {
                     std::cout << "g\n"; //todo: implement here
                     break;
                 }
-                case commands::DIR: {
+                case command::actions::DIR: {
                     std::cout << "h\n"; //todo: implement here
                     break;
                 }
-                case commands::INIT: {
+                case command::actions::INIT: {
                     if (fs != nullptr) {
                         std::cout << "error: file system is already loaded; save current file system to create/restore another one";
                         break;
@@ -113,14 +130,14 @@ public:
                     }
                     break;
                 }
-                case commands::SAVE: {
+                case command::actions::SAVE: {
                     fs->save();
                     std::cout << "disk saved\n";
                     delete fs;
                     fs = nullptr;
                     break;
                 }
-                case commands::HELP: {
+                case command::actions::HELP: {
                     std::cout << "in <cyl_no> <surf_no> <sect_no> <sect_len> <disk_filename> - initialize file system\n";
                     std::cout << "sv <disk_filename> - save current file system\n";
                     std::cout << "cr - create file\n";              //todo: provide args description
@@ -133,7 +150,7 @@ public:
                     std::cout << "dr - show directory content\n";
                     break;
                 }
-                case commands::EXIT: {
+                case command::actions::EXIT: {
                     return;
                 }
                 default: {
@@ -144,19 +161,19 @@ public:
 };
 
 
-const std::map<std::string, std::pair<shell::commands, std::uint8_t>> shell::commands_map = {
-        {"cr",   {shell::commands::CREATE,  1}},  //todo: set required args number
-        {"de",   {shell::commands::DESTROY, 1}},  //todo: set required args number
-        {"op",   {shell::commands::OPEN,    1}},  //todo: set required args number
-        {"cl",   {shell::commands::CLOSE,   1}},  //todo: set required args number
-        {"rd",   {shell::commands::READ,    1}},  //todo: set required args number
-        {"wr",   {shell::commands::WRITE,   1}},  //todo: set required args number
-        {"sk",   {shell::commands::SEEK,    1}},  //todo: set required args number
-        {"dr",   {shell::commands::DIR,     1}},
-        {"in",   {shell::commands::INIT,    6}},
-        {"sv",   {shell::commands::SAVE,    2}},
-        {"help", {shell::commands::HELP,    1}},
-        {"exit", {shell::commands::EXIT,    1}}
+const std::map<std::string, const shell::command> shell::commands_map = {
+        {"cr",   shell::command{shell::command::actions::CREATE,  0}},  //todo: set required args number
+        {"de",   shell::command{shell::command::actions::DESTROY, 0}},  //todo: set required args number
+        {"op",   shell::command{shell::command::actions::OPEN,    0}},  //todo: set required args number
+        {"cl",   shell::command{shell::command::actions::CLOSE,   0}},  //todo: set required args number
+        {"rd",   shell::command{shell::command::actions::READ,    0}},  //todo: set required args number
+        {"wr",   shell::command{shell::command::actions::WRITE,   0}},  //todo: set required args number
+        {"sk",   shell::command{shell::command::actions::SEEK,    0}},  //todo: set required args number
+        {"dr",   shell::command{shell::command::actions::DIR,     0}},  //todo: set required args number
+        {"in",   shell::command{shell::command::actions::INIT,    5}},
+        {"sv",   shell::command{shell::command::actions::SAVE,    0, 1}},
+        {"help",   shell::command{shell::command::actions::HELP,  0}},
+        {"exit",   shell::command{shell::command::actions::EXIT,  0}},
 };
 
 #ifdef FS_SHELL_MAIN
