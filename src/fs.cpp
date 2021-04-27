@@ -101,8 +101,8 @@ namespace lab_fs {
         return {new file_system{filename, io{blocks_no, section_length, std::move(disk)}}, result};
     }
 
-    void file_system::save() {
-        std::ofstream file{_filename, std::ios::out | std::ios::binary};
+    void file_system::save(const std::string &filename) {
+        std::ofstream file{filename, std::ios::out | std::ios::binary};
 
         std::vector<std::byte> bitmap_block;
         std::uint8_t x = 0;
@@ -118,7 +118,9 @@ namespace lab_fs {
         }
         bitmap_block.resize(_io.get_block_size(), std::byte{0});
 
-        //todo: for every opened and modified file call save?
+        while(!_oft.empty()) {
+            close(_oft.size() - 1);
+        }
 
         file.write(reinterpret_cast<char *>(bitmap_block.data()), _io.get_block_size());
         std::vector<std::byte> block(_io.get_block_size());
@@ -126,6 +128,10 @@ namespace lab_fs {
             _io.read_block(i, block.begin());
             file.write(reinterpret_cast<char *>(bitmap_block.data()), _io.get_block_size());
         }
+    }
+
+    void file_system::save() {
+        save(_filename);
     }
 
     fs_result file_system::create(const std::string &filename) {

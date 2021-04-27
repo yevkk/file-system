@@ -88,6 +88,7 @@ namespace lab_fs {
                                                           std::size_t section_length,
                                                           const std::string &filename);
 
+        void save(const std::string &filename);
         void save();
 
         auto lseek(std::size_t i, std::size_t pos) -> fs_result;
