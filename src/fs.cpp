@@ -1,7 +1,9 @@
 #include "fs.hpp"
+#include "fs_utils.cpp"
 
 #include <cassert>
 #include <fstream>
+#include <optional>
 
 namespace lab_fs {
 
@@ -355,6 +357,19 @@ namespace lab_fs {
         _oft.erase(_oft.begin() + i);
 
         return SUCCESS;
+    }
+
+    auto file_system::directory() -> std::vector<std::pair<std::string, std::size_t>> {
+        std::vector<std::pair<std::string, std::size_t>> res;
+        for (std::size_t i = 0; ; i++) {
+            auto entry  = utils::dir_entry::read_dir_entry(this, i);
+            if (!entry.has_value()) {
+                break;
+            } else if (!entry.value().filename.empty()) {
+                res.emplace_back(entry.value().filename, get_descriptor(std::to_integer<std::size_t>(entry.value().descriptor_index), true)->length);
+            }
+        }
+        return res;
     }
 
     //todo: implement here destroy, close, read, directory...
