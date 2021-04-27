@@ -62,7 +62,7 @@ public:
 
             auto cmd = commands_map.find(args[0])->second;
 
-            if (args.size() >= cmd.args_min_no && args.size() <= cmd.args_max_no) {
+            if ((args.size() - 1 < cmd.args_min_no) || (args.size() - 1 > cmd.args_max_no)) {
                 std::cout << "error: wrong arguments number, enter `help` to commands list\n";
                 continue;
             }
@@ -172,8 +172,8 @@ const std::map<std::string, const shell::command> shell::commands_map = {
         {"dr",   shell::command{shell::command::actions::DIR,     0}},  //todo: set required args number
         {"in",   shell::command{shell::command::actions::INIT,    5}},
         {"sv",   shell::command{shell::command::actions::SAVE,    0, 1}},
-        {"help",   shell::command{shell::command::actions::HELP,  0}},
-        {"exit",   shell::command{shell::command::actions::EXIT,  0}},
+        {"help", shell::command{shell::command::actions::HELP,    0}},
+        {"exit", shell::command{shell::command::actions::EXIT,    0}},
 };
 
 #ifdef FS_SHELL_MAIN
