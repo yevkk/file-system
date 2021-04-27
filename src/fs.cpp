@@ -1,7 +1,9 @@
 #include "fs.hpp"
+#include "fs_utils.cpp"
 
 #include <cassert>
 #include <fstream>
+#include <optional>
 
 namespace lab_fs {
 
@@ -101,8 +103,8 @@ namespace lab_fs {
         return {new file_system{filename, io{blocks_no, section_length, std::move(disk)}}, result};
     }
 
-    void file_system::save() {
-        std::ofstream file{_filename, std::ios::out | std::ios::binary};
+    void file_system::save(const std::string &filename) {
+        std::ofstream file{filename, std::ios::out | std::ios::binary};
 
         std::vector<std::byte> bitmap_block;
         std::uint8_t x = 0;
@@ -118,7 +120,9 @@ namespace lab_fs {
         }
         bitmap_block.resize(_io.get_block_size(), std::byte{0});
 
-        //todo: for every opened and modified file call save?
+        while(!_oft.empty()) {
+            close(_oft.size() - 1);
+        }
 
         file.write(reinterpret_cast<char *>(bitmap_block.data()), _io.get_block_size());
         std::vector<std::byte> block(_io.get_block_size());
@@ -126,6 +130,10 @@ namespace lab_fs {
             _io.read_block(i, block.begin());
             file.write(reinterpret_cast<char *>(bitmap_block.data()), _io.get_block_size());
         }
+    }
+
+    void file_system::save() {
+        save(_filename);
     }
 
     fs_result file_system::create(const std::string &filename) {
@@ -349,6 +357,19 @@ namespace lab_fs {
         _oft.erase(_oft.begin() + i);
 
         return SUCCESS;
+    }
+
+    auto file_system::directory() -> std::vector<std::pair<std::string, std::size_t>> {
+        std::vector<std::pair<std::string, std::size_t>> res;
+        for (std::size_t i = 0; ; i++) {
+            auto entry  = utils::dir_entry::read_dir_entry(this, i);
+            if (!entry.has_value()) {
+                break;
+            } else if (!entry.value().filename.empty()) {
+                res.emplace_back(entry.value().filename, get_descriptor(std::to_integer<std::size_t>(entry.value().descriptor_index), true)->length);
+            }
+        }
+        return res;
     }
 
     //todo: implement here destroy, close, read, directory...
