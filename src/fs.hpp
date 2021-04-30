@@ -53,6 +53,7 @@ namespace lab_fs {
 
             std::vector<std::byte> buffer;
             std::size_t current_pos;
+            std::size_t current_rel_block; // current relative block - index in block array of descriptor
             bool modified;
             bool initialized;
         private:
