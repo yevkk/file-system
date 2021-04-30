@@ -1,7 +1,9 @@
 #include "fs.hpp"
+#include "fs_utils.cpp"
 
 #include <cassert>
 #include <fstream>
+#include <optional>
 
 namespace lab_fs {
 
@@ -35,7 +37,7 @@ namespace lab_fs {
         return _filename;
     }
 
-    file_system::file_system(std::string filename, io &&disk_io) :
+    file_system::file_system(std::string filename, io &&disk_io) : 
             _filename{std::move(filename)},
             _io{disk_io},
             _bitmap(disk_io.get_blocks_no()) {
@@ -93,7 +95,7 @@ namespace lab_fs {
 
             using constrs = file_system::constraints;
             for (auto i = constrs::bytes_for_file_length;
-                 i < constrs::bytes_for_file_length + constrs::max_blocks_per_file; i++) {
+                i < constrs::bytes_for_file_length + constrs::max_blocks_per_file; i++) {
                 disk[1][i] = std::byte{255};
             }
         }
@@ -101,8 +103,8 @@ namespace lab_fs {
         return {new file_system{filename, io{blocks_no, section_length, std::move(disk)}}, result};
     }
 
-    void file_system::save() {
-        std::ofstream file{_filename, std::ios::out | std::ios::binary};
+    void file_system::save(const std::string &filename) {
+        std::ofstream file{filename, std::ios::out | std::ios::binary};
 
         std::vector<std::byte> bitmap_block;
         std::uint8_t x = 0;
@@ -118,7 +120,9 @@ namespace lab_fs {
         }
         bitmap_block.resize(_io.get_block_size(), std::byte{0});
 
-        //todo: for every opened and modified file call save?
+        while(!_oft.empty()) {
+            close(_oft.size() - 1);
+        }
 
         file.write(reinterpret_cast<char *>(bitmap_block.data()), _io.get_block_size());
         std::vector<std::byte> block(_io.get_block_size());
@@ -126,6 +130,10 @@ namespace lab_fs {
             _io.read_block(i, block.begin());
             file.write(reinterpret_cast<char *>(bitmap_block.data()), _io.get_block_size());
         }
+    }
+
+    void file_system::save() {
+        save(_filename);
     }
 
     fs_result file_system::create(const std::string &filename) {
@@ -150,6 +158,12 @@ namespace lab_fs {
     std::pair<std::size_t, fs_result> file_system::open(const std::string &filename) {
         if (filename.size() > constraints::max_filename_length) {
             return {0, INVALID_NAME};
+        }
+
+        for (auto &e : _oft) {
+            if (e->get_filename() == filename) {
+                return {0, ALREADY_OPENED};
+            }
         }
 
         if (_oft.size() == constraints::oft_max_size) {
@@ -179,7 +193,6 @@ namespace lab_fs {
             return SUCCESS;
         }
         auto ofte = _oft[i];
-        auto buffer = ofte->buffer;
         auto descriptor = _descriptors_cache[ofte->get_descriptor_index()];
         std::size_t pos = ofte->current_pos % _io.get_block_size();
         std::size_t new_pos = pos;
@@ -198,7 +211,7 @@ namespace lab_fs {
         while (true) {
             // fits within current block
             if (src.size() - offset <= _io.get_block_size() - pos) {
-                std::copy(src.begin() + offset, src.end(), buffer.begin() + pos);
+                std::copy(src.begin() + offset, src.end(), ofte->buffer.begin() + pos);
                 ofte->modified = true;
                 new_pos = pos + src.size() - offset;
                 ofte->current_pos = current_block * _io.get_block_size() + new_pos;
@@ -216,12 +229,12 @@ namespace lab_fs {
             // src would be split between couple blocks
             else {
                 auto part = _io.get_block_size() - pos;
-                std::copy(src.begin() + offset, src.begin() + offset + part, buffer.begin() + pos);
+                std::copy(src.begin() + offset, src.begin() + offset + part, ofte->buffer.begin() + pos);
                 offset += part;
                 new_pos = pos + part;
 
                 //save changes to disk
-                _io.write_block(descriptor->occupied_blocks[current_block], buffer.begin());
+                _io.write_block(descriptor->occupied_blocks[current_block], ofte->buffer.begin());
                 ofte->modified = false;
 
                 // check if there is space to continue
@@ -229,14 +242,14 @@ namespace lab_fs {
                     current_block++;
                     // try to read next allocated block
                     if (descriptor->occupied_blocks[current_block] != 0) {
-                        _io.read_block(descriptor->occupied_blocks[current_block], buffer.begin());
+                        _io.read_block(descriptor->occupied_blocks[current_block], ofte->buffer.begin());
                         pos = 0;
                     }
                     // try to allocate new block
                     else {
                         if (allocate_block(descriptor, current_block)) {
                             changed = true;
-                            std::fill(buffer.begin(), buffer.end(), std::byte(0));
+                            std::fill(ofte->buffer.begin(), ofte->buffer.end(), std::byte(0));
                         } else {
                             ofte->current_pos = current_block * _io.get_block_size();
                             if (descriptor->length < current_block * _io.get_block_size()) {
@@ -268,7 +281,7 @@ namespace lab_fs {
     }
 
     fs_result file_system::lseek(std::size_t i, std::size_t pos) {
-        if (i > _oft.size()) {
+        if (i >= _oft.size()) {
             return NOT_FOUND;
         }
 
@@ -344,6 +357,19 @@ namespace lab_fs {
         _oft.erase(_oft.begin() + i);
 
         return SUCCESS;
+    }
+
+    auto file_system::directory() -> std::vector<std::pair<std::string, std::size_t>> {
+        std::vector<std::pair<std::string, std::size_t>> res;
+        for (std::size_t i = 0; ; i++) {
+            auto entry  = utils::dir_entry::read_dir_entry(this, i);
+            if (!entry.has_value()) {
+                break;
+            } else if (!entry.value().filename.empty()) {
+                res.emplace_back(entry.value().filename, get_descriptor(std::to_integer<std::size_t>(entry.value().descriptor_index), true)->length);
+            }
+        }
+        return res;
     }
 
     //todo: implement here destroy, close, read, directory...
