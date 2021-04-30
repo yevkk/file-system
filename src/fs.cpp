@@ -1,10 +1,9 @@
 #include "fs.hpp"
+#include "fs_utils.cpp"
 
 #include <cassert>
 #include <fstream>
 #include <optional>
-
-#include "fs_utils.cpp"
 
 namespace lab_fs {
 
