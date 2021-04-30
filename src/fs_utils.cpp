@@ -239,6 +239,7 @@ namespace lab_fs {
                 if (descriptor->occupied_blocks[block] != 0) {
                     _io.read_block(descriptor->occupied_blocks[block], oft->buffer.begin());
                     oft->current_rel_block = block;
+                    oft->modified = false;
                 } else {
                     if(!allocate_block(descriptor, block)) {
                         return NO_SPACE;
