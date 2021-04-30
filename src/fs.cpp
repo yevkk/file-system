@@ -2,6 +2,9 @@
 
 #include <cassert>
 #include <fstream>
+#include <optional>
+
+#include "fs_utils.cpp"
 
 namespace lab_fs {
 
@@ -24,6 +27,7 @@ namespace lab_fs {
             _filename{std::move(filename)},
             _descriptor_index{descriptor_index},
             current_pos{0},
+            current_rel_block{0},
             modified{false},
             initialized{false} {}
 
@@ -101,8 +105,8 @@ namespace lab_fs {
         return {new file_system{filename, io{blocks_no, section_length, std::move(disk)}}, result};
     }
 
-    void file_system::save() {
-        std::ofstream file{_filename, std::ios::out | std::ios::binary};
+    void file_system::save(const std::string &filename) {
+        std::ofstream file{filename, std::ios::out | std::ios::binary};
 
         std::vector<std::byte> bitmap_block;
         std::uint8_t x = 0;
@@ -118,7 +122,9 @@ namespace lab_fs {
         }
         bitmap_block.resize(_io.get_block_size(), std::byte{0});
 
-        //todo: for every opened and modified file call save?
+        while(!_oft.empty()) {
+            close(_oft.size() - 1);
+        }
 
         file.write(reinterpret_cast<char *>(bitmap_block.data()), _io.get_block_size());
         std::vector<std::byte> block(_io.get_block_size());
@@ -126,6 +132,10 @@ namespace lab_fs {
             _io.read_block(i, block.begin());
             file.write(reinterpret_cast<char *>(bitmap_block.data()), _io.get_block_size());
         }
+    }
+
+    void file_system::save() {
+        save(_filename);
     }
 
     fs_result file_system::create(const std::string &filename) {
@@ -208,6 +218,15 @@ namespace lab_fs {
                 new_pos = pos + src.size() - offset;
                 ofte->current_pos = current_block * _io.get_block_size() + new_pos;
 
+                // we filled current block till the very end, current pos is now at the next block
+                if(ofte->current_pos / _io.get_block_size() > current_block) {
+                    //save changes to disk
+                    _io.write_block(descriptor->occupied_blocks[current_block], ofte->buffer.begin());
+                    ofte->initialized = false;
+                    ofte->modified = false;
+                    ofte->current_rel_block = current_block + 1;
+                }
+
                 if (descriptor->length < current_block * _io.get_block_size() + new_pos) {
                     descriptor->length = current_block * _io.get_block_size() + new_pos;
                     changed = true;
@@ -235,12 +254,21 @@ namespace lab_fs {
                     // try to read next allocated block
                     if (descriptor->occupied_blocks[current_block] != 0) {
                         _io.read_block(descriptor->occupied_blocks[current_block], ofte->buffer.begin());
+<<<<<<< HEAD
+=======
+                        ofte->current_rel_block = current_block;
+>>>>>>> main
                         pos = 0;
                     }
                     // try to allocate new block
                     else {
                         if (allocate_block(descriptor, current_block)) {
                             changed = true;
+<<<<<<< HEAD
+=======
+                            ofte->current_rel_block = current_block;
+                            pos = 0;
+>>>>>>> main
                             std::fill(ofte->buffer.begin(), ofte->buffer.end(), std::byte(0));
                         } else {
                             ofte->current_pos = current_block * _io.get_block_size();
@@ -283,12 +311,13 @@ namespace lab_fs {
             return INVALID_POS;
         }
 
-        std::size_t current_block = ofte->current_pos / _io.get_block_size();
+        std::size_t current_block = ofte->current_rel_block;
         std::size_t new_block = pos / _io.get_block_size();
         if (current_block != new_block && ofte->modified) {
             _io.write_block(descriptor->occupied_blocks[current_block], ofte->buffer.begin());
             ofte->initialized = false;
             ofte->modified = false;
+            ofte->current_rel_block = new_block;
         }
         ofte->current_pos = pos;
         return SUCCESS;
@@ -349,6 +378,19 @@ namespace lab_fs {
         _oft.erase(_oft.begin() + i);
 
         return SUCCESS;
+    }
+
+    auto file_system::directory() -> std::vector<std::pair<std::string, std::size_t>> {
+        std::vector<std::pair<std::string, std::size_t>> res;
+        for (std::size_t i = 0; ; i++) {
+            auto entry  = utils::dir_entry::read_dir_entry(this, i);
+            if (!entry.has_value()) {
+                break;
+            } else if (!entry.value().filename.empty()) {
+                res.emplace_back(entry.value().filename, get_descriptor(std::to_integer<std::size_t>(entry.value().descriptor_index), true)->length);
+            }
+        }
+        return res;
     }
 
     //todo: implement here destroy, close, read, directory...
