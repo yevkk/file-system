@@ -1,10 +1,9 @@
 #include "fs.hpp"
+#include "fs_utils.cpp"
 
 #include <cassert>
 #include <fstream>
 #include <optional>
-
-#include "fs_utils.cpp"
 
 namespace lab_fs {
 
@@ -27,7 +26,7 @@ namespace lab_fs {
             _filename{std::move(filename)},
             _descriptor_index{descriptor_index},
             current_pos{0},
-            current_rel_block{0},
+            current_block_index{0},
             modified{false},
             initialized{false} {}
 
@@ -224,7 +223,7 @@ namespace lab_fs {
                     _io.write_block(descriptor->occupied_blocks[current_block], ofte->buffer.begin());
                     ofte->initialized = false;
                     ofte->modified = false;
-                    ofte->current_rel_block = current_block + 1;
+                    ofte->current_block_index = current_block + 1;
                 }
 
                 if (descriptor->length < current_block * _io.get_block_size() + new_pos) {
@@ -254,21 +253,15 @@ namespace lab_fs {
                     // try to read next allocated block
                     if (descriptor->occupied_blocks[current_block] != 0) {
                         _io.read_block(descriptor->occupied_blocks[current_block], ofte->buffer.begin());
-<<<<<<< HEAD
-=======
-                        ofte->current_rel_block = current_block;
->>>>>>> main
+                        ofte->current_block_index = current_block;
                         pos = 0;
                     }
                     // try to allocate new block
                     else {
                         if (allocate_block(descriptor, current_block)) {
                             changed = true;
-<<<<<<< HEAD
-=======
-                            ofte->current_rel_block = current_block;
+                            ofte->current_block_index = current_block;
                             pos = 0;
->>>>>>> main
                             std::fill(ofte->buffer.begin(), ofte->buffer.end(), std::byte(0));
                         } else {
                             ofte->current_pos = current_block * _io.get_block_size();
@@ -311,13 +304,13 @@ namespace lab_fs {
             return INVALID_POS;
         }
 
-        std::size_t current_block = ofte->current_rel_block;
+        std::size_t current_block = ofte->current_block_index;
         std::size_t new_block = pos / _io.get_block_size();
         if (current_block != new_block && ofte->modified) {
             _io.write_block(descriptor->occupied_blocks[current_block], ofte->buffer.begin());
             ofte->initialized = false;
             ofte->modified = false;
-            ofte->current_rel_block = new_block;
+            ofte->current_block_index = new_block;
         }
         ofte->current_pos = pos;
         return SUCCESS;

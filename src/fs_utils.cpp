@@ -238,7 +238,7 @@ namespace lab_fs {
             if (descriptor->is_initialized()) {
                 if (descriptor->occupied_blocks[block] != 0) {
                     _io.read_block(descriptor->occupied_blocks[block], oft->buffer.begin());
-                    oft->current_rel_block = block;
+                    oft->current_block_index = block;
                     oft->modified = false;
                 } else {
                     if(!allocate_block(descriptor, block)) {
@@ -248,7 +248,7 @@ namespace lab_fs {
             } else {
                 if (auto res = initialize_file_descriptor(descriptor, block); res != SUCCESS) {
                     save_descriptor(oft->get_descriptor_index(), descriptor);
-                    oft->current_rel_block = block;
+                    oft->current_block_index = block;
                     return res;
                 }
             }
