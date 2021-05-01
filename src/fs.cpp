@@ -311,7 +311,7 @@ namespace lab_fs {
 
             oft_entry->current_pos += n_bytes_to_copy;
 
-            if(oft_entry->current_pos % _io.get_block_size() == 0) {
+            if(oft_entry->current_pos % _io.get_block_size() == 0 && oft_entry->modified) {
                 save_block(oft_entry, oft_entry->current_pos / _io.get_block_size() - 1);
             }
 
