@@ -246,6 +246,7 @@ namespace lab_fs {
                         }
                         return res;
                     }
+                    pos = 0;
                 }
                 // file has reached the max size
                 else {
