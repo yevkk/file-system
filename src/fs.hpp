@@ -78,6 +78,7 @@ namespace lab_fs {
 
         auto initialize_oft_entry(oft_entry* entry, std::size_t block) -> fs_result;
         auto initialize_file_descriptor(file_descriptor* descriptor, std::size_t block) -> fs_result;
+        void save_block(oft_entry* entry, std::size_t block);
 
     public:
         file_system(std::string filename, io &&disk_io);
