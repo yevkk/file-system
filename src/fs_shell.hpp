@@ -13,27 +13,18 @@ class shell {
     class command {
        public:
         enum class actions {
-            CREATE,
-            DESTROY,
-            OPEN,
-            CLOSE,
-            READ,
-            WRITE,
-            SEEK,
-            DIR,
-            INIT,
-            SAVE,
-            HELP,
-            EXIT
+            CREATE, DESTROY, OPEN, CLOSE, READ, WRITE, SEEK, DIR, INIT, SAVE, HELP, EXIT
         };
 
-        command(actions action, unsigned args_min_no, unsigned args_max_no) : action{action},
-                                                                              args_min_no{args_min_no},
-                                                                              args_max_no{args_max_no} {};
+        command(actions action, unsigned args_min_no, unsigned args_max_no) : 
+            action{action},
+            args_min_no{args_min_no},
+            args_max_no{args_max_no} {};
 
-        command(actions action, unsigned args_min_no) : action{action},
-                                                        args_min_no{args_min_no},
-                                                        args_max_no{args_min_no} {};
+        command(actions action, unsigned args_min_no) : 
+            action{action},
+            args_min_no{args_min_no},
+            args_max_no{args_min_no} {};
 
         actions action;
         unsigned args_min_no;
