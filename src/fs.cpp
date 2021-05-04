@@ -355,6 +355,4 @@ namespace lab_fs {
         return res;
     }
 
-    //todo: implement here destroy, close, read, directory...
-
 }  //namespace lab_fs
