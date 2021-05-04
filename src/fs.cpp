@@ -217,7 +217,7 @@ namespace lab_fs {
 
 
             // update available blocks in bitmap
-            for (std::size_t i = 0; i < descriptor->length; ++i) {
+            for (std::size_t i = 0; i < descriptor->length / _io.get_block_size(); ++i) {
                 _bitmap[descriptor->occupied_blocks[i]] = false;
             }
 
