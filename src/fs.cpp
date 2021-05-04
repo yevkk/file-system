@@ -191,7 +191,7 @@ namespace lab_fs {
         // remove oft entry
         for (int i = 0; i < _oft.size(); ++i) {
             if (_oft[i]->get_filename() == filename) {
-                descriptor_index = _oft[i]->get_descriptor_index();
+                descriptor_index = (int) _oft[i]->get_descriptor_index();
                 delete _oft[i];
                 _oft.erase(_oft.begin() + i);
             }
@@ -201,7 +201,7 @@ namespace lab_fs {
         if (descriptor_index == -1) {
             // check if file info is already cached
             if (auto it = _descriptor_indexes_cache.find(filename); it != _descriptor_indexes_cache.end()) {
-                descriptor_index = it->second;
+                descriptor_index = (int) it->second;
             } else {
                 descriptor_index = get_descriptor_index_from_dir_entry(filename);
                 if (descriptor_index == -1)
@@ -209,37 +209,26 @@ namespace lab_fs {
             }
         }
 
-        file_descriptor* descriptor = get_descriptor(descriptor_index);
+        if (file_descriptor* descriptor = get_descriptor(descriptor_index)) {
 
-        // clear caches
-        _descriptors_cache.erase(descriptor_index);
-        _descriptor_indexes_cache.erase(filename);
+            // clear caches
+            _descriptors_cache.erase(descriptor_index);
+            _descriptor_indexes_cache.erase(filename);
 
 
-        // clear io: memory and descriptor
-        // clear memory on disk
-        for (std::size_t i = 0; i < descriptor->length; ++i) {
-            utils::disk_view dv{_io, (std::uint8_t) descriptor->occupied_blocks[i], true};
-
-            for (std::size_t index_in_block = 0; index_in_block < _io.get_block_size(); ++index_in_block) {
-                dv[index_in_block] = std::byte{0};
+            // update available blocks in bitmap
+            for (std::size_t i = 0; i < descriptor->length; ++i) {
+                _bitmap[descriptor->occupied_blocks[i]] = false;
             }
 
-            dv.push_buffer();
+            // clear descriptor in io
+            file_descriptor empty_descriptor{0, {0, 0, 0}};
+            save_descriptor(descriptor_index, &empty_descriptor);
+
+            return SUCCESS;
         }
 
-        // clear descriptor
-        std::size_t offset = descriptor_index * constraints::bytes_for_descriptor;
-        const std::uint8_t block_i = 1 + offset / _io.get_block_size();
-        utils::disk_view dv{_io, block_i, true};
-
-        for (std::size_t i = offset; i < offset + constraints::bytes_for_descriptor; ++i) {
-            dv[i] = std::byte{0};
-        }
-
-        dv.push_buffer();
-
-        return SUCCESS;
+        return NOT_FOUND;
     }
 
     fs_result file_system::write(std::size_t i, const std::vector<std::byte> &src) {
@@ -411,7 +400,5 @@ namespace lab_fs {
         }
         return res;
     }
-
-    //todo: implement here destroy, close, read, directory...
 
 }  //namespace lab_fs
