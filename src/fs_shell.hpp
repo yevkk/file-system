@@ -7,6 +7,7 @@
 #include <map>
 #include <vector>
 #include <cstring>
+#include <numeric>
 
 class shell {
 private:
@@ -104,7 +105,16 @@ public:
                     break;
                 }
                 case command::actions::DIR: {
-                    std::cout << "h\n"; //todo: implement here
+                    auto res = fs->directory();
+                    if (res.empty()) {
+                        std::cout << "directory is empty\n";
+                        break;
+                    }
+                    std::size_t max_length = std::accumulate(res.begin(), res.end(), std::size_t{0}, [](auto value, auto it){ return std::max(value, it.first.size()); });
+                    for (auto &e : res) {
+                        e.first.resize(max_length, ' ');
+                        std::cout << e.first << " - " << e.second << "B" << std::endl;
+                    }
                     break;
                 }
                 case command::actions::INIT: {
@@ -131,7 +141,11 @@ public:
                     break;
                 }
                 case command::actions::SAVE: {
-                    fs->save();
+                    if (args.size() == 1) {
+                        fs->save();
+                    } else {
+                        fs->save(args[1]);
+                    }
                     std::cout << "disk saved\n";
                     delete fs;
                     fs = nullptr;
@@ -169,7 +183,7 @@ const std::map<std::string, const shell::command> shell::commands_map = {
         {"rd",   shell::command{shell::command::actions::READ,    0}},  //todo: set required args number
         {"wr",   shell::command{shell::command::actions::WRITE,   0}},  //todo: set required args number
         {"sk",   shell::command{shell::command::actions::SEEK,    0}},  //todo: set required args number
-        {"dr",   shell::command{shell::command::actions::DIR,     0}},  //todo: set required args number
+        {"dr",   shell::command{shell::command::actions::DIR,     0}},
         {"in",   shell::command{shell::command::actions::INIT,    5}},
         {"sv",   shell::command{shell::command::actions::SAVE,    0, 1}},
         {"help", shell::command{shell::command::actions::HELP,    0}},
