@@ -101,7 +101,6 @@ namespace lab_fs {
         auto close(std::size_t i) -> fs_result;
         auto directory() -> std::vector<std::pair<std::string, std::size_t>>;
 
-        //todo: Declare here destroy, close, read, directory...
     };
 
 } //namespace lab_fs
