@@ -67,7 +67,7 @@ namespace lab_fs {
         std::map<std::size_t, file_descriptor *> _descriptors_cache; // (index of desc) -> (file desc)
         std::map<std::string, std::size_t> _descriptor_indexes_cache; // (_filename) -> (index of desc)
 
-        auto get_descriptor(std::size_t index) -> file_descriptor *;
+        auto get_descriptor(std::size_t index, bool disable_caching = false) -> file_descriptor *;
         auto save_descriptor(std::size_t index, file_descriptor *descriptor) -> bool;
         auto take_descriptor() -> int;
 
@@ -78,6 +78,7 @@ namespace lab_fs {
 
         auto initialize_oft_entry(oft_entry* entry, std::size_t block) -> fs_result;
         auto initialize_file_descriptor(file_descriptor* descriptor, std::size_t block) -> fs_result;
+        void save_block(oft_entry* entry, std::size_t block);
 
     public:
         file_system(std::string filename, io &&disk_io);
@@ -88,6 +89,7 @@ namespace lab_fs {
                                                           std::size_t section_length,
                                                           const std::string &filename);
 
+        void save(const std::string &filename);
         void save();
 
         auto lseek(std::size_t i, std::size_t pos) -> fs_result;
@@ -97,6 +99,7 @@ namespace lab_fs {
         auto write(std::size_t i, const std::vector<std::byte>& src) -> fs_result;
         auto read(std::size_t i, std::vector<std::byte>::iterator mem_area, std::size_t count) -> fs_result;
         auto close(std::size_t i) -> fs_result;
+        auto directory() -> std::vector<std::pair<std::string, std::size_t>>;
 
         //todo: Declare here destroy, close, read, directory...
     };

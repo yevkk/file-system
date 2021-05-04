@@ -1,7 +1,7 @@
 #include "fs.hpp"
 
 namespace lab_fs {
-    file_system::file_descriptor *file_system::get_descriptor(std::size_t index) {
+    file_system::file_descriptor *file_system::get_descriptor(std::size_t index, bool disable_caching) {
         if (_descriptors_cache.contains(index)) {
             return _descriptors_cache[index];
         }
@@ -29,7 +29,9 @@ namespace lab_fs {
 
         if (!(length == 0 && std::all_of(occupied_blocks.begin(), occupied_blocks.end(), [](const auto &value) { return value == 0; }))) {
             auto fd = new file_descriptor(length, occupied_blocks);
-            _descriptors_cache[index] = fd;
+            if (!disable_caching) {
+                _descriptors_cache[index] = fd;
+            }
             return fd;
         } else {
             return nullptr;
@@ -141,7 +143,6 @@ namespace lab_fs {
                         return std::optional<dir_entry>{dir_entry(container)};
                     } else {
                         return std::nullopt;
-                        ;
                     }
                 } else {
                     return std::nullopt;
@@ -237,10 +238,12 @@ namespace lab_fs {
             if (descriptor->is_initialized()) {
                 if (descriptor->occupied_blocks[block] != 0) {
                     _io.read_block(descriptor->occupied_blocks[block], oft->buffer.begin());
+                    oft->modified = false;
                 } else {
                     if(!allocate_block(descriptor, block)) {
                         return NO_SPACE;
                     }
+                    save_descriptor(oft->get_descriptor_index(), descriptor);
                 }
             } else {
                 if (auto res = initialize_file_descriptor(descriptor, block); res != SUCCESS) {
@@ -263,6 +266,13 @@ namespace lab_fs {
             return NO_SPACE;
         }
         return SUCCESS;
+    }
+
+    void file_system::save_block(oft_entry *entry, std::size_t block) {
+        auto descriptor = _descriptors_cache[entry->get_descriptor_index()];
+        _io.write_block(descriptor->occupied_blocks[block], entry->buffer.begin());
+        entry->modified = false;
+        entry->initialized = false;
     }
 
 } //namespace lab_fs

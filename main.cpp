@@ -1,7 +1,2 @@
-#include <iostream>
-
-#include "fs.hpp"
-
-int main() {
-
-}
+#define FS_SHELL_MAIN
+#include "fs_shell.hpp"
