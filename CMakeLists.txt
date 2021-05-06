@@ -24,3 +24,5 @@ set (SHELL_SRC_LIST
 
 add_executable(file_system main.cpp ${SHELL_SRC_LIST})
 target_link_libraries(file_system PRIVATE ${LIB_NAME})
+
+add_subdirectory(demo)
