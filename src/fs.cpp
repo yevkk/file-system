@@ -26,7 +26,6 @@ namespace lab_fs {
             _filename{std::move(filename)},
             _descriptor_index{descriptor_index},
             current_pos{0},
-            current_block_index{0},
             modified{false},
             initialized{false} {}
 
@@ -186,6 +185,52 @@ namespace lab_fs {
         return {_oft.size() - 1, SUCCESS};
     }
 
+    fs_result file_system::destroy(const std::string& filename) {
+        int descriptor_index = -1;
+
+        // remove oft entry
+        for (int i = 0; i < _oft.size(); ++i) {
+            if (_oft[i]->get_filename() == filename) {
+                descriptor_index = (int) _oft[i]->get_descriptor_index();
+                delete _oft[i];
+                _oft.erase(_oft.begin() + i);
+            }
+        }
+
+        // file wasn't opened
+        if (descriptor_index == -1) {
+            // check if file info is already cached
+            if (auto it = _descriptor_indexes_cache.find(filename); it != _descriptor_indexes_cache.end()) {
+                descriptor_index = (int) it->second;
+            } else {
+                descriptor_index = get_descriptor_index_from_dir_entry(filename);
+                if (descriptor_index == -1)
+                    return NOT_FOUND;
+            }
+        }
+
+        if (file_descriptor* descriptor = get_descriptor(descriptor_index)) {
+
+            // clear caches
+            _descriptors_cache.erase(descriptor_index);
+            _descriptor_indexes_cache.erase(filename);
+
+
+            // update available blocks in bitmap
+            for (std::size_t i = 0; i < descriptor->length / _io.get_block_size(); ++i) {
+                _bitmap[descriptor->occupied_blocks[i]] = false;
+            }
+
+            // clear descriptor in io
+            file_descriptor empty_descriptor{0, {0, 0, 0}};
+            save_descriptor(descriptor_index, &empty_descriptor);
+
+            return SUCCESS;
+        }
+
+        return NOT_FOUND;
+    }
+
     fs_result file_system::write(std::size_t i, const std::vector<std::byte> &src) {
         if (i >= _oft.size()) {
             return NOT_FOUND;
@@ -214,26 +259,17 @@ namespace lab_fs {
             if (src.size() - offset <= _io.get_block_size() - pos) {
                 std::copy(src.begin() + offset, src.end(), ofte->buffer.begin() + pos);
                 ofte->modified = true;
-                new_pos = pos + src.size() - offset;
-                ofte->current_pos = current_block * _io.get_block_size() + new_pos;
+                ofte->current_pos += src.size() - offset;
 
-                // we filled current block till the very end, current pos is now at the next block
-                if(ofte->current_pos / _io.get_block_size() > current_block) {
-                    //save changes to disk
-                    _io.write_block(descriptor->occupied_blocks[current_block], ofte->buffer.begin());
-                    ofte->initialized = false;
-                    ofte->modified = false;
-                    ofte->current_block_index = current_block + 1;
+                if (ofte->current_pos / _io.get_block_size() > current_block) {
+                    save_block(ofte, current_block);
                 }
 
-                if (descriptor->length < current_block * _io.get_block_size() + new_pos) {
-                    descriptor->length = current_block * _io.get_block_size() + new_pos;
-                    changed = true;
-                }
-
-                if (changed) {
+                if (descriptor->length < ofte->current_pos) {
+                    descriptor->length = ofte->current_pos;
                     save_descriptor(ofte->get_descriptor_index(), descriptor);
                 }
+
                 return SUCCESS;
             }
             // src would be split between couple blocks
@@ -241,50 +277,27 @@ namespace lab_fs {
                 auto part = _io.get_block_size() - pos;
                 std::copy(src.begin() + offset, src.begin() + offset + part, ofte->buffer.begin() + pos);
                 offset += part;
-                new_pos = pos + part;
+                ofte->current_pos += part;
 
-                //save changes to disk
-                _io.write_block(descriptor->occupied_blocks[current_block], ofte->buffer.begin());
-                ofte->modified = false;
+                save_block(ofte, current_block);
 
                 // check if there is space to continue
                 if (current_block < constraints::max_blocks_per_file - 1) {
                     current_block++;
-                    // try to read next allocated block
-                    if (descriptor->occupied_blocks[current_block] != 0) {
-                        _io.read_block(descriptor->occupied_blocks[current_block], ofte->buffer.begin());
-                        ofte->current_block_index = current_block;
-                        pos = 0;
-                    }
-                    // try to allocate new block
-                    else {
-                        if (allocate_block(descriptor, current_block)) {
-                            changed = true;
-                            ofte->current_block_index = current_block;
-                            pos = 0;
-                            std::fill(ofte->buffer.begin(), ofte->buffer.end(), std::byte(0));
-                        } else {
-                            ofte->current_pos = current_block * _io.get_block_size();
-                            if (descriptor->length < current_block * _io.get_block_size()) {
-                                descriptor->length = current_block * _io.get_block_size();
-                                changed = true;
-                            }
-
-                            if (changed) {
-                                save_descriptor(ofte->get_descriptor_index(), descriptor);
-                            }
-                            return NO_SPACE;
+                    auto res = initialize_oft_entry(ofte, current_block);
+                    if (res != SUCCESS) {
+                        if (descriptor->length < ofte->current_pos) {
+                            descriptor->length = ofte->current_pos;
+                            save_descriptor(ofte->get_descriptor_index(), descriptor);
                         }
+                        return res;
                     }
+                    pos = 0;
                 }
                 // file has reached the max size
                 else {
                     if (descriptor->length < constraints::max_blocks_per_file * _io.get_block_size()) {
                         descriptor->length = constraints::max_blocks_per_file * _io.get_block_size();
-                        changed = true;
-                    }
-                    ofte->current_pos = descriptor->length;
-                    if (changed) {
                         save_descriptor(ofte->get_descriptor_index(), descriptor);
                     }
                     return TOO_BIG;
@@ -304,13 +317,10 @@ namespace lab_fs {
             return INVALID_POS;
         }
 
-        std::size_t current_block = ofte->current_block_index;
+        std::size_t current_block = ofte->current_pos / _io.get_block_size();
         std::size_t new_block = pos / _io.get_block_size();
         if (current_block != new_block && ofte->modified) {
-            _io.write_block(descriptor->occupied_blocks[current_block], ofte->buffer.begin());
-            ofte->initialized = false;
-            ofte->modified = false;
-            ofte->current_block_index = new_block;
+            save_block(ofte, current_block);
         }
         ofte->current_pos = pos;
         return SUCCESS;
@@ -346,6 +356,11 @@ namespace lab_fs {
                       mem_area);
 
             oft_entry->current_pos += n_bytes_to_copy;
+
+            if(oft_entry->current_pos % _io.get_block_size() == 0 && oft_entry->modified) {
+                save_block(oft_entry, oft_entry->current_pos / _io.get_block_size() - 1);
+            }
+
             mem_area = mem_area + n_bytes_to_copy;
             count -= n_bytes_to_copy;
         }
@@ -385,7 +400,5 @@ namespace lab_fs {
         }
         return res;
     }
-
-    //todo: implement here destroy, close, read, directory...
 
 }  //namespace lab_fs

@@ -53,7 +53,6 @@ namespace lab_fs {
 
             std::vector<std::byte> buffer;
             std::size_t current_pos;
-            std::size_t current_block_index; // current relative block - index in block array of descriptor
             bool modified;
             bool initialized;
         private:
@@ -79,6 +78,7 @@ namespace lab_fs {
 
         auto initialize_oft_entry(oft_entry* entry, std::size_t block) -> fs_result;
         auto initialize_file_descriptor(file_descriptor* descriptor, std::size_t block) -> fs_result;
+        void save_block(oft_entry* entry, std::size_t block);
 
     public:
         file_system(std::string filename, io &&disk_io);
@@ -95,12 +95,12 @@ namespace lab_fs {
         auto lseek(std::size_t i, std::size_t pos) -> fs_result;
         auto create(const std::string& filename) -> fs_result;
         auto open(const std::string& filename) -> std::pair<std::size_t, fs_result>;
+        auto destroy(const std::string& filename) -> fs_result;
         auto write(std::size_t i, const std::vector<std::byte>& src) -> fs_result;
         auto read(std::size_t i, std::vector<std::byte>::iterator mem_area, std::size_t count) -> fs_result;
         auto close(std::size_t i) -> fs_result;
         auto directory() -> std::vector<std::pair<std::string, std::size_t>>;
-
-        //todo: Declare here destroy, close, read, directory...
+        
     };
 
 } //namespace lab_fs
