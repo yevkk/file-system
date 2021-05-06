@@ -49,11 +49,14 @@ private:
 public:
     shell() = delete;
 
-    static void run() {
+    static void run(std::istream &is = std::cin, bool repeat_commands = false) {
         lab_fs::file_system *fs = nullptr;
         while (true) {
             std::string line;
-            std::getline(std::cin, line);
+            std::getline(is, line);
+            if (repeat_commands) {
+                std::cout << line << "\n";
+            }
             auto args = parse_args(line);
 
             if (args.empty() || !commands_map.contains(args[0])) {
