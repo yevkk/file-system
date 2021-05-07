@@ -151,8 +151,11 @@ namespace lab_fs {
         if (descriptor_index == -1)
             return NO_SPACE;
 
-        save_dir_entry(index, filename, descriptor_index);
-        return SUCCESS;
+        if(save_dir_entry(index, filename, descriptor_index)) {
+            return SUCCESS;
+        } else {
+            return FAILED;
+        }
     }
 
     std::pair<std::size_t, fs_result> file_system::open(const std::string &filename) {

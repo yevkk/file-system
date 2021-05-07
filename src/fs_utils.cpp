@@ -174,7 +174,9 @@ namespace lab_fs {
     // picks last free space and reads through all to verify there is no same file
     std::pair<std::size_t, fs_result> file_system::take_dir_entry(const std::string &filename) {
         if (!_oft[0]->initialized) {
-            return {0, SUCCESS};
+            if(auto res = initialize_oft_entry(_oft[0], 0); res != SUCCESS) {
+                return {0,res};
+            }
         }
 
         std::size_t i = 0;
