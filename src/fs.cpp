@@ -342,12 +342,15 @@ namespace lab_fs {
         return SUCCESS;
     }
 
-    fs_result file_system::read(std::size_t i, std::vector<std::byte>::iterator mem_area, std::size_t count) {
+    std::pair<std::size_t, fs_result> file_system::read(std::size_t i, std::vector<std::byte>::iterator mem_area, std::size_t count) {
         if (i >= _oft.size()) {
-            return NOT_FOUND;
+            return {0, NOT_FOUND};
         }
 
         auto oft_entry = _oft[i];
+        auto descriptor = get_descriptor(oft_entry->get_descriptor_index());
+
+        count = std::min(descriptor->length - oft_entry->current_pos, count);
         while (count > 0) {
             // end of file
             if (oft_entry->current_pos == constraints::max_blocks_per_file * _io.get_block_size()) {
@@ -360,7 +363,7 @@ namespace lab_fs {
                 const auto res = initialize_oft_entry(oft_entry, block);
 
                 if (res != SUCCESS) {
-                    return res;
+                    return {0, res};
                 }
             }
 
@@ -381,7 +384,7 @@ namespace lab_fs {
             count -= n_bytes_to_copy;
         }
 
-        return SUCCESS;
+        return {count, SUCCESS};
     }
 
 
