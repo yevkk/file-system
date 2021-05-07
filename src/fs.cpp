@@ -154,7 +154,7 @@ namespace lab_fs {
         if(save_dir_entry(index, filename, descriptor_index)) {
             return SUCCESS;
         } else {
-            return FAILED;
+            return FAIL;
         }
     }
 
@@ -234,13 +234,13 @@ namespace lab_fs {
         return NOT_FOUND;
     }
 
-    fs_result file_system::write(std::size_t i, std::vector<std::byte>::iterator mem_area, std::size_t count) {
+    std::pair<size_t, fs_result> file_system::write(std::size_t i, std::vector<std::byte>::iterator mem_area, std::size_t count) {
         if (i >= _oft.size()) {
-            return NOT_FOUND;
+            return {0, NOT_FOUND};
         }
-        /* if (src.empty()) {
-            return SUCCESS;
-        } */
+        if (count == 0) {
+            return {0, SUCCESS};
+        }
         auto ofte = _oft[i];
         auto descriptor = _descriptors_cache[ofte->get_descriptor_index()];
         std::size_t pos = ofte->current_pos % _io.get_block_size();
@@ -250,11 +250,11 @@ namespace lab_fs {
         std::size_t current_block = ofte->current_pos / _io.get_block_size();
 
         if (ofte->current_pos == _io.get_block_size() * constraints::max_blocks_per_file) {
-            return INVALID_POS;
+            return {0, INVALID_POS};
         }
 
         if (auto init_oft_res = initialize_oft_entry(ofte, current_block); init_oft_res != SUCCESS) {
-            return init_oft_res;
+            return {0, init_oft_res};
         }
 
         while (true) {
@@ -273,7 +273,7 @@ namespace lab_fs {
                     save_descriptor(ofte->get_descriptor_index(), descriptor);
                 }
 
-                return SUCCESS;
+                return {count, SUCCESS};
             }
             // src would be split between couple blocks
             else {
@@ -293,7 +293,7 @@ namespace lab_fs {
                             descriptor->length = ofte->current_pos;
                             save_descriptor(ofte->get_descriptor_index(), descriptor);
                         }
-                        return res;
+                        return {offset, res};
                     }
                     pos = 0;
                 }
@@ -303,7 +303,7 @@ namespace lab_fs {
                         descriptor->length = constraints::max_blocks_per_file * _io.get_block_size();
                         save_descriptor(ofte->get_descriptor_index(), descriptor);
                     }
-                    return TOO_BIG;
+                    return {offset, TOO_BIG};
                 }
             }
         }
