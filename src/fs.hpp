@@ -97,7 +97,7 @@ namespace lab_fs {
         auto open(const std::string& filename) -> std::pair<std::size_t, fs_result>;
         auto destroy(const std::string& filename) -> fs_result;
         auto write(std::size_t i, std::vector<std::byte>::iterator mem_area, std::size_t count) -> std::pair<size_t, fs_result>;
-        auto read(std::size_t i, std::vector<std::byte>::iterator mem_area, std::size_t count) -> fs_result;
+        auto read(std::size_t i, std::vector<std::byte>::iterator mem_area, std::size_t count) -> std::pair<std::size_t, fs_result>;
         auto close(std::size_t i) -> fs_result;
         auto directory() -> std::vector<std::pair<std::string, std::size_t>>;
         
