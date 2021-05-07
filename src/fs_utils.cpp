@@ -187,7 +187,13 @@ namespace lab_fs {
             // looked through all dir entries and none of them is free
             if (!dire_opt.has_value()) {
                 if (free == -1) {
-                    return {0, NO_SPACE};
+                    // the file is just too big
+                    if( _descriptors_cache[_oft[0]->get_descriptor_index()]->length == _io.get_block_size()* constraints::max_blocks_per_file) {
+                        return {0, NO_SPACE};                       
+                    // all entries were present
+                    } else {
+                        return {i, SUCCESS};
+                    }
                 }
                 return {free, SUCCESS};
             }
