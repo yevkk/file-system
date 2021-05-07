@@ -234,13 +234,13 @@ namespace lab_fs {
         return NOT_FOUND;
     }
 
-    fs_result file_system::write(std::size_t i, const std::vector<std::byte> &src) {
+    fs_result file_system::write(std::size_t i, std::vector<std::byte>::iterator mem_area, std::size_t count) {
         if (i >= _oft.size()) {
             return NOT_FOUND;
         }
-        if (src.empty()) {
+        /* if (src.empty()) {
             return SUCCESS;
-        }
+        } */
         auto ofte = _oft[i];
         auto descriptor = _descriptors_cache[ofte->get_descriptor_index()];
         std::size_t pos = ofte->current_pos % _io.get_block_size();
@@ -259,10 +259,10 @@ namespace lab_fs {
 
         while (true) {
             // fits within current block
-            if (src.size() - offset <= _io.get_block_size() - pos) {
-                std::copy(src.begin() + offset, src.end(), ofte->buffer.begin() + pos);
+            if (count - offset <= _io.get_block_size() - pos) {
+                std::copy(mem_area + offset, mem_area + count, ofte->buffer.begin() + pos);
                 ofte->modified = true;
-                ofte->current_pos += src.size() - offset;
+                ofte->current_pos += count - offset;
 
                 if (ofte->current_pos / _io.get_block_size() > current_block) {
                     save_block(ofte, current_block);
@@ -278,7 +278,7 @@ namespace lab_fs {
             // src would be split between couple blocks
             else {
                 auto part = _io.get_block_size() - pos;
-                std::copy(src.begin() + offset, src.begin() + offset + part, ofte->buffer.begin() + pos);
+                std::copy(mem_area + offset, mem_area + offset + part, ofte->buffer.begin() + pos);
                 offset += part;
                 ofte->current_pos += part;
 

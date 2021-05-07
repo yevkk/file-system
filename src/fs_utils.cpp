@@ -211,7 +211,7 @@ namespace lab_fs {
         std::size_t pos = i * (utils::dir_entry::dir_entry_size);
         if (lseek(0, pos) == SUCCESS) {
             auto data = utils::dir_entry{std::move(filename), std::byte{(std::uint8_t) descriptor_index}}.convert();
-            if (write(0, data) == SUCCESS) {
+            if (write(0, data.begin(), data.size()) == SUCCESS) {
                 return true;
             } else {
                 return false;
