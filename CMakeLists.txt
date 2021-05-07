@@ -5,6 +5,7 @@ set(CMAKE_CXX_STANDARD 20)
 
 set(TOP_DIR ${CMAKE_SOURCE_DIR})
 set(SRC_DIR ${TOP_DIR}/src)
+set(DEMO_DIR ${TOP_DIR}/demo)
 
 include_directories(${SRC_DIR})
 
@@ -24,3 +25,5 @@ set (SHELL_SRC_LIST
 
 add_executable(file_system main.cpp ${SHELL_SRC_LIST})
 target_link_libraries(file_system PRIVATE ${LIB_NAME})
+
+add_subdirectory(${DEMO_DIR})

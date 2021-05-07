@@ -1,0 +1,4 @@
+in 1 1 32 256 a.fs
+cr f
+op f
+r f
