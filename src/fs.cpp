@@ -163,9 +163,16 @@ namespace lab_fs {
             return {0, INVALID_NAME};
         }
 
-        for (auto &e : _oft) {
-            if (e->get_filename() == filename) {
-                return {0, ALREADY_OPENED};
+        std::size_t free_entry = 0;
+        for (unsigned i = 0; i < _oft.size(); i++) {
+            if (_oft[i] != nullptr) {
+                if (_oft[i]->get_filename() == filename) {
+                    return {0, ALREADY_OPENED};
+                }
+            } else {
+                if (free_entry == 0) {
+                    free_entry = i;
+                }
             }
         }
 
@@ -184,8 +191,14 @@ namespace lab_fs {
                 return {0, NOT_FOUND};
         }
         get_descriptor(index);
-        _oft.emplace_back(new oft_entry{filename, (std::size_t) index});
-        return {_oft.size() - 1, SUCCESS};
+
+        if (free_entry == 0) {
+            _oft.emplace_back(new oft_entry{filename, (std::size_t) index});
+            free_entry = _oft.size() - 1;
+        } else {
+            _oft[free_entry] = new oft_entry{filename, (std::size_t)index};
+        }
+        return {free_entry, SUCCESS};
     }
 
     fs_result file_system::destroy(const std::string& filename) {
@@ -386,7 +399,7 @@ namespace lab_fs {
         }
 
         delete _oft[i];
-        _oft.erase(_oft.begin() + i);
+        _oft[i] = nullptr;
 
         return SUCCESS;
     }

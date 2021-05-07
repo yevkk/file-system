@@ -215,10 +215,11 @@ const std::map<lab_fs::fs_result, std::string> shell::fs_results_map = {
     {lab_fs::fs_result::EXISTS, "error: exists"},
     {lab_fs::fs_result::NO_SPACE, "error: no space"},
     {lab_fs::fs_result::NOT_FOUND, "error: not found"},
-    {lab_fs::fs_result::TOO_BIG, "error: too big"},
+    {lab_fs::fs_result::TOO_BIG, "error: file is too big"},
     {lab_fs::fs_result::INVALID_NAME, "error: invalid name"},
     {lab_fs::fs_result::INVALID_POS, "error: invalid pos"},
     {lab_fs::fs_result::ALREADY_OPENED, "error: already opened"},
+    {lab_fs::fs_result::FAIL, "error: something went wrong"},
 };
 
 #ifdef FS_SHELL_MAIN
