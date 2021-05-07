@@ -43,13 +43,14 @@ namespace lab_fs {
             explicit disk_view(io &disk_io, std::uint8_t start_block = 0, bool write_enabled = true) :
                     _io{disk_io},
                     _block_i{start_block},
+                    _start_block{start_block},
                     _write_enabled{write_enabled} {
                 _buffer.resize(_io.get_block_size());
                 _io.read_block(_block_i, _buffer.begin());
             }
 
             std::byte &operator [](std::size_t index) {
-                std::size_t queried_block_i = index / _io.get_block_size();
+                std::size_t queried_block_i = _start_block + index / _io.get_block_size();
                 assert(queried_block_i < _io.get_blocks_no() && "Out of range");
                 std::size_t local_index = index % _io.get_block_size();
 
@@ -106,6 +107,7 @@ namespace lab_fs {
         private:
             io &_io;
             std::uint8_t _block_i;
+            std::uint8_t _start_block;
             std::vector<std::byte> _buffer;
             std::vector<std::byte> _prev_buffer;
             bool _write_enabled;
