@@ -15,7 +15,6 @@ cr f13
 cr f14
 cr f15
 cr f16
-op f17
 op f1
 op f2
 op f3
@@ -32,4 +31,3 @@ op f13
 op f14
 op f15
 op f16
-op f17
