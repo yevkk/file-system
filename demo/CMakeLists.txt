@@ -2,10 +2,12 @@ project(fs_demo)
 
 set(SCENARIO_DIR scripts)
 
-set(SCENARIO_FILES
-        ${SCENARIO_DIR}/sample.txt
-        ${SCENARIO_DIR}/sample2.txt
-        )
+#set(SCENARIO_FILES
+#        ${SCENARIO_DIR}/sample.txt
+#        ${SCENARIO_DIR}/sample2.txt
+#        )
+
+file(GLOB SCENARIO_FILES RELATIVE ${CMAKE_CURRENT_SOURCE_DIR} CONFIGURE_DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/${SCENARIO_DIR}/*)
 
 foreach(FILE ${SCENARIO_FILES})
     configure_file(${FILE} ${FILE})
