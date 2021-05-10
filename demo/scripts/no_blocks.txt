@@ -1,0 +1,8 @@
+in 1 1 4 32 a.fs
+cr file1
+op file1
+wr 1 33
+cr file2
+op file2
+wr 2 33
+exit

@@ -120,11 +120,13 @@ public:
                     std::size_t index = std::stoull(args[1]);
                     std::size_t length = std::stoull(args[2]);
                     std::vector<std::byte> src(length);
-                    for(std::size_t i = 0; i < length; i++) {
+                    for (std::size_t i = 0; i < length; i++) {
                         src[i] = std::byte(i % 256);
                     }
-                    auto res = fs->write(index, src);
-                    std::cout << fs_results_map.at(res) << std::endl;
+                    std::size_t count;
+                    lab_fs::fs_result res;
+                    std::tie(count,res) = fs->write(index, src.begin(), src.size());
+                    std::cout << fs_results_map.at(res) << ", written "<< count << " bytes" << std::endl;
                     break;
                 }
                 case command::actions::SEEK: {
@@ -213,10 +215,11 @@ const std::map<lab_fs::fs_result, std::string> shell::fs_results_map = {
     {lab_fs::fs_result::EXISTS, "error: exists"},
     {lab_fs::fs_result::NO_SPACE, "error: no space"},
     {lab_fs::fs_result::NOT_FOUND, "error: not found"},
-    {lab_fs::fs_result::TOO_BIG, "error: too big"},
+    {lab_fs::fs_result::TOO_BIG, "error: file is too big"},
     {lab_fs::fs_result::INVALID_NAME, "error: invalid name"},
     {lab_fs::fs_result::INVALID_POS, "error: invalid pos"},
     {lab_fs::fs_result::ALREADY_OPENED, "error: already opened"},
+    {lab_fs::fs_result::FAIL, "error: something went wrong"},
 };
 
 #ifdef FS_SHELL_MAIN

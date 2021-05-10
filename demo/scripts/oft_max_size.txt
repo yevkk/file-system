@@ -1,0 +1,34 @@
+in 1 1 32 128 a.fs
+cr f1
+cr f2
+cr f3
+cr f4
+cr f5
+cr f6
+cr f7
+cr f8
+cr f9
+cr f10
+cr f11
+cr f12
+cr f13
+cr f14
+cr f15
+cr f16
+op f1
+op f2
+op f3
+op f4
+op f5
+op f6
+op f7
+op f8
+op f9
+op f10
+op f11
+op f12
+op f13
+op f14
+op f15
+op f16
+exit
