@@ -81,7 +81,19 @@ public:
                     break;
                 }
                 case command::actions::DESTROY: {
-                    std::cout << "b\n"; //todo: implement here
+                    const std::string& filename = args[1];
+                    auto result = fs->destroy(filename);
+                    switch (result) {
+                        case lab_fs::NOT_FOUND:
+                            std::cout << "file not found: " << filename << std::endl;
+                            break;
+                        case lab_fs::SUCCESS:
+                            std::cout << "file '" << filename << "' destroyed successfully" << std::endl;
+                            break;
+                        default:
+                            std::cout << "this error shouldn't happen here: programming bug" << std::endl;
+                    }
+
                     break;
                 }
                 case command::actions::OPEN: {
@@ -89,11 +101,59 @@ public:
                     break;
                 }
                 case command::actions::CLOSE: {
-                    std::cout << "d\n"; //todo: implement here
+                    std::size_t index;
+                    try {
+                        index = std::stoull(args[1]);
+                    } catch (...) {
+                        std::cout << "invalid argument for close command: " << args[1] << std::endl;
+                        break;
+                    }
+
+                    auto result = fs->close(index);
+
+                    switch (result) {
+                        case lab_fs::NOT_FOUND:
+                            std::cout << "no such file" << std::endl;
+                            break;
+                        case lab_fs::SUCCESS:
+                            std::cout << "file " << index << " closed successfully" << std::endl;
+                            break;
+                        default:
+                            std::cout << "this error shouldn't happen here: programming bug" << std::endl;
+                    }
+
                     break;
                 }
                 case command::actions::READ: {
-                    std::cout << "e\n"; //todo: implement here
+                    std::size_t index;
+                    std::size_t count;
+                    try {
+                        index = std::stoull(args[1]);
+                        count = std::stoull(args[2]);
+                    } catch (...) {
+                        std::cout << "invalid arguments for read command: " << args[1] << " " << args[2] << std::endl;
+                        break;
+                    }
+
+                    std::vector<std::byte> content{count, std::byte{}};
+
+                    auto result = fs->read(index, content.begin(), count);
+
+                    switch (result) {
+                        case lab_fs::NOT_FOUND:
+                            std::cout << "no such file" << std::endl;
+                            break;
+                        case lab_fs::SUCCESS:
+                            std::cout << count << " bytes from file " << index << " read successfully" << std::endl;
+                            // print content here?
+                            break;
+                        case lab_fs::NO_SPACE:
+                            std::cout << "no space for file descriptor" << std::endl;
+                            break;
+                        default:
+                            std::cout << "this error shouldn't happen here: programming bug" << std::endl;
+                    }
+
                     break;
                 }
                 case command::actions::WRITE: {
@@ -177,10 +237,10 @@ public:
 
 const std::map<std::string, const shell::command> shell::commands_map = {
         {"cr",   shell::command{shell::command::actions::CREATE,  0}},  //todo: set required args number
-        {"de",   shell::command{shell::command::actions::DESTROY, 0}},  //todo: set required args number
+        {"de",   shell::command{shell::command::actions::DESTROY, 1, 1}},
         {"op",   shell::command{shell::command::actions::OPEN,    0}},  //todo: set required args number
-        {"cl",   shell::command{shell::command::actions::CLOSE,   0}},  //todo: set required args number
-        {"rd",   shell::command{shell::command::actions::READ,    0}},  //todo: set required args number
+        {"cl",   shell::command{shell::command::actions::CLOSE,   1, 1}},
+        {"rd",   shell::command{shell::command::actions::READ,    2, 2}},
         {"wr",   shell::command{shell::command::actions::WRITE,   0}},  //todo: set required args number
         {"sk",   shell::command{shell::command::actions::SEEK,    0}},  //todo: set required args number
         {"dr",   shell::command{shell::command::actions::DIR,     0}},
