@@ -151,8 +151,11 @@ namespace lab_fs {
         if (descriptor_index == -1)
             return NO_SPACE;
 
-        save_dir_entry(index, filename, descriptor_index);
-        return SUCCESS;
+        if(save_dir_entry(index, filename, descriptor_index)) {
+            return SUCCESS;
+        } else {
+            return FAIL;
+        }
     }
 
     std::pair<std::size_t, fs_result> file_system::open(const std::string &filename) {
@@ -160,9 +163,16 @@ namespace lab_fs {
             return {0, INVALID_NAME};
         }
 
-        for (auto &e : _oft) {
-            if (e->get_filename() == filename) {
-                return {0, ALREADY_OPENED};
+        std::size_t free_entry = 0;
+        for (unsigned i = 0; i < _oft.size(); i++) {
+            if (_oft[i] != nullptr) {
+                if (_oft[i]->get_filename() == filename) {
+                    return {0, ALREADY_OPENED};
+                }
+            } else {
+                if (free_entry == 0) {
+                    free_entry = i;
+                }
             }
         }
 
@@ -181,8 +191,14 @@ namespace lab_fs {
                 return {0, NOT_FOUND};
         }
         get_descriptor(index);
-        _oft.emplace_back(new oft_entry{filename, (std::size_t) index});
-        return {_oft.size() - 1, SUCCESS};
+
+        if (free_entry == 0) {
+            _oft.emplace_back(new oft_entry{filename, (std::size_t) index});
+            free_entry = _oft.size() - 1;
+        } else {
+            _oft[free_entry] = new oft_entry{filename, (std::size_t)index};
+        }
+        return {free_entry, SUCCESS};
     }
 
     fs_result file_system::destroy(const std::string& filename) {
@@ -231,12 +247,12 @@ namespace lab_fs {
         return NOT_FOUND;
     }
 
-    fs_result file_system::write(std::size_t i, const std::vector<std::byte> &src) {
+    std::pair<size_t, fs_result> file_system::write(std::size_t i, std::vector<std::byte>::iterator mem_area, std::size_t count) {
         if (i >= _oft.size()) {
-            return NOT_FOUND;
+            return {0, NOT_FOUND};
         }
-        if (src.empty()) {
-            return SUCCESS;
+        if (count == 0) {
+            return {0, SUCCESS};
         }
         auto ofte = _oft[i];
         auto descriptor = _descriptors_cache[ofte->get_descriptor_index()];
@@ -247,19 +263,19 @@ namespace lab_fs {
         std::size_t current_block = ofte->current_pos / _io.get_block_size();
 
         if (ofte->current_pos == _io.get_block_size() * constraints::max_blocks_per_file) {
-            return INVALID_POS;
+            return {0, INVALID_POS};
         }
 
         if (auto init_oft_res = initialize_oft_entry(ofte, current_block); init_oft_res != SUCCESS) {
-            return init_oft_res;
+            return {0, init_oft_res};
         }
 
         while (true) {
             // fits within current block
-            if (src.size() - offset <= _io.get_block_size() - pos) {
-                std::copy(src.begin() + offset, src.end(), ofte->buffer.begin() + pos);
+            if (count - offset <= _io.get_block_size() - pos) {
+                std::copy(mem_area + offset, mem_area + count, ofte->buffer.begin() + pos);
                 ofte->modified = true;
-                ofte->current_pos += src.size() - offset;
+                ofte->current_pos += count - offset;
 
                 if (ofte->current_pos / _io.get_block_size() > current_block) {
                     save_block(ofte, current_block);
@@ -270,12 +286,12 @@ namespace lab_fs {
                     save_descriptor(ofte->get_descriptor_index(), descriptor);
                 }
 
-                return SUCCESS;
+                return {count, SUCCESS};
             }
             // src would be split between couple blocks
             else {
                 auto part = _io.get_block_size() - pos;
-                std::copy(src.begin() + offset, src.begin() + offset + part, ofte->buffer.begin() + pos);
+                std::copy(mem_area + offset, mem_area + offset + part, ofte->buffer.begin() + pos);
                 offset += part;
                 ofte->current_pos += part;
 
@@ -290,7 +306,7 @@ namespace lab_fs {
                             descriptor->length = ofte->current_pos;
                             save_descriptor(ofte->get_descriptor_index(), descriptor);
                         }
-                        return res;
+                        return {offset, res};
                     }
                     pos = 0;
                 }
@@ -300,7 +316,7 @@ namespace lab_fs {
                         descriptor->length = constraints::max_blocks_per_file * _io.get_block_size();
                         save_descriptor(ofte->get_descriptor_index(), descriptor);
                     }
-                    return TOO_BIG;
+                    return {offset, TOO_BIG};
                 }
             }
         }
@@ -326,12 +342,15 @@ namespace lab_fs {
         return SUCCESS;
     }
 
-    fs_result file_system::read(std::size_t i, std::vector<std::byte>::iterator mem_area, std::size_t count) {
+    std::pair<std::size_t, fs_result> file_system::read(std::size_t i, std::vector<std::byte>::iterator mem_area, std::size_t count) {
         if (i >= _oft.size()) {
-            return NOT_FOUND;
+            return {0, NOT_FOUND};
         }
 
         auto oft_entry = _oft[i];
+        auto descriptor = get_descriptor(oft_entry->get_descriptor_index());
+
+        count = std::min(descriptor->length - oft_entry->current_pos, count);
         while (count > 0) {
             // end of file
             if (oft_entry->current_pos == constraints::max_blocks_per_file * _io.get_block_size()) {
@@ -344,7 +363,7 @@ namespace lab_fs {
                 const auto res = initialize_oft_entry(oft_entry, block);
 
                 if (res != SUCCESS) {
-                    return res;
+                    return {0, res};
                 }
             }
 
@@ -357,15 +376,20 @@ namespace lab_fs {
 
             oft_entry->current_pos += n_bytes_to_copy;
 
-            if(oft_entry->current_pos % _io.get_block_size() == 0 && oft_entry->modified) {
-                save_block(oft_entry, oft_entry->current_pos / _io.get_block_size() - 1);
+            if(oft_entry->current_pos % _io.get_block_size() == 0) {
+                if (oft_entry->modified) {
+                    save_block(oft_entry, oft_entry->current_pos / _io.get_block_size() - 1);
+                } else {
+                    oft_entry->initialized = false;
+                }
             }
+            
 
             mem_area = mem_area + n_bytes_to_copy;
             count -= n_bytes_to_copy;
         }
 
-        return SUCCESS;
+        return {count, SUCCESS};
     }
 
 
@@ -383,7 +407,7 @@ namespace lab_fs {
         }
 
         delete _oft[i];
-        _oft.erase(_oft.begin() + i);
+        _oft[i] = nullptr;
 
         return SUCCESS;
     }
