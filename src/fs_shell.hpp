@@ -88,7 +88,10 @@ public:
                     break;
                 }
                 case command::actions::DESTROY: {
-                    std::cout << "b\n"; //todo: implement here
+                    const std::string& filename = args[1];
+                    auto code = fs->destroy(filename);
+                    std::cout << fs_results_map.at(code) << ", destroy file " << filename << std::endl;
+
                     break;
                 }
                 case command::actions::OPEN: {
@@ -106,11 +109,37 @@ public:
                     break;
                 }
                 case command::actions::CLOSE: {
-                    std::cout << "d\n"; //todo: implement here
+                    std::size_t index;
+                    try {
+                        index = std::stoull(args[1]);
+                    } catch (...) {
+                        std::cout << "invalid argument for close command: " << args[1] << std::endl;
+                        break;
+                    }
+
+                    auto code = fs->close(index);
+
+                    std::cout << fs_results_map.at(code) << ", close file " << index << std::endl;
+
                     break;
                 }
                 case command::actions::READ: {
-                    std::cout << "e\n"; //todo: implement here
+                    std::size_t index;
+                    std::size_t count;
+                    try {
+                        index = std::stoull(args[1]);
+                        count = std::stoull(args[2]);
+                    } catch (...) {
+                        std::cout << "invalid arguments for read command: " << args[1] << " " << args[2] << std::endl;
+                        break;
+                    }
+
+                    std::vector<std::byte> content{count, std::byte{}};
+
+                    auto [bytes_read, code] = fs->read(index, content.begin(), count);
+
+                    std::cout << fs_results_map.at(code) << ", read "<< count << " bytes" << std::endl;
+
                     break;
                 }
                 case command::actions::WRITE: {
@@ -197,10 +226,10 @@ public:
 
 const std::map<std::string, const shell::command> shell::commands_map = {
         {"cr",   shell::command{shell::command::actions::CREATE,  1}},
-        {"de",   shell::command{shell::command::actions::DESTROY, 0}},  //todo: set required args number
+        {"de",   shell::command{shell::command::actions::DESTROY, 1, 1}},
         {"op",   shell::command{shell::command::actions::OPEN,    1}},
-        {"cl",   shell::command{shell::command::actions::CLOSE,   0}},  //todo: set required args number
-        {"rd",   shell::command{shell::command::actions::READ,    0}},  //todo: set required args number
+        {"cl",   shell::command{shell::command::actions::CLOSE,   1, 1}},
+        {"rd",   shell::command{shell::command::actions::READ,    2, 2}},
         {"wr",   shell::command{shell::command::actions::WRITE,   2}},
         {"sk",   shell::command{shell::command::actions::SEEK,    2}},
         {"dr",   shell::command{shell::command::actions::DIR,     0}},  //todo: set required args number
