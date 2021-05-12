@@ -120,8 +120,8 @@ namespace lab_fs {
         }
         bitmap_block.resize(_io.get_block_size(), std::byte{0});
 
-        while(!_oft.empty()) {
-            close(_oft.size() - 1);
+        for (std::uint8_t i = 0; i < _oft.size(); i++) {
+            close(i);
         }
 
         file.write(reinterpret_cast<char *>(bitmap_block.data()), _io.get_block_size());
