@@ -166,9 +166,10 @@ public:
                 }
                 case command::actions::DIR: {
                     auto dir = fs->directory();
-                    auto max_filename_length = std::max_element(dir.begin(), dir.end(), [](auto a, auto b) {
+                    auto it = std::max_element(dir.begin(), dir.end(), [](auto a, auto b) {
                         return a.first.size() < b.first.size();
-                    })->first.size();
+                    });
+                    auto max_filename_length = (it == dir.end()) ? 0 : it->first.size();
                     for (auto &file : dir) {
                         file.first.resize(max_filename_length, ' ');
                         std::cout << file.first << " | " << file.second << "B\n";
