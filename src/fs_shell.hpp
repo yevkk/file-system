@@ -200,7 +200,11 @@ public:
                     break;
                 }
                 case command::actions::SAVE: {
-                    fs->save();
+                    if (args.size() == 1) {
+                        fs->save();
+                    } else {
+                        fs->save(args[1]);
+                    }
                     std::cout << "disk saved\n";
                     delete fs;
                     fs = nullptr;
