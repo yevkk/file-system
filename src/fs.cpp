@@ -176,7 +176,7 @@ namespace lab_fs {
             }
         }
 
-        if (_oft.size() == constraints::oft_max_size) {
+        if (free_entry == 0 && _oft.size() == constraints::oft_max_size) {
             return {0, NO_SPACE};
         }
 
