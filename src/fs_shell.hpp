@@ -7,6 +7,7 @@
 #include <map>
 #include <vector>
 #include <cstring>
+#include <algorithm>
 
 class shell {
 private:
@@ -17,14 +18,11 @@ private:
         };
 
         command(actions action, unsigned args_min_no, unsigned args_max_no) :
-            action{action},
-            args_min_no{args_min_no},
-            args_max_no{args_max_no} {};
-
-        command(actions action, unsigned args_min_no) :
                 action{action},
                 args_min_no{args_min_no},
-                args_max_no{args_min_no} {};
+                args_max_no{args_max_no} {};
+
+        command(actions action, unsigned args_min_no) : command(action, args_min_no, args_min_no) {};
 
         actions action;
         unsigned args_min_no;
@@ -88,7 +86,10 @@ public:
                     break;
                 }
                 case command::actions::DESTROY: {
-                    std::cout << "b\n"; //todo: implement here
+                    const std::string &filename = args[1];
+                    auto code = fs->destroy(filename);
+                    std::cout << fs_results_map.at(code) << ", destroy file " << filename << std::endl;
+
                     break;
                 }
                 case command::actions::OPEN: {
@@ -106,11 +107,37 @@ public:
                     break;
                 }
                 case command::actions::CLOSE: {
-                    std::cout << "d\n"; //todo: implement here
+                    std::size_t index;
+                    try {
+                        index = std::stoull(args[1]);
+                    } catch (...) {
+                        std::cout << "invalid argument for close command: " << args[1] << std::endl;
+                        break;
+                    }
+
+                    auto code = fs->close(index);
+
+                    std::cout << fs_results_map.at(code) << ", close file " << index << std::endl;
+
                     break;
                 }
                 case command::actions::READ: {
-                    std::cout << "e\n"; //todo: implement here
+                    std::size_t index;
+                    std::size_t count;
+                    try {
+                        index = std::stoull(args[1]);
+                        count = std::stoull(args[2]);
+                    } catch (...) {
+                        std::cout << "invalid arguments for read command: " << args[1] << " " << args[2] << std::endl;
+                        break;
+                    }
+
+                    std::vector<std::byte> content{count, std::byte{}};
+
+                    auto[bytes_read, code] = fs->read(index, content.begin(), count);
+
+                    std::cout << fs_results_map.at(code) << ", read " << count << " bytes" << std::endl;
+
                     break;
                 }
                 case command::actions::WRITE: {
@@ -125,8 +152,8 @@ public:
                     }
                     std::size_t count;
                     lab_fs::fs_result res;
-                    std::tie(count,res) = fs->write(index, src.begin(), src.size());
-                    std::cout << fs_results_map.at(res) << ", written "<< count << " bytes" << std::endl;
+                    std::tie(count, res) = fs->write(index, src.begin(), src.size());
+                    std::cout << fs_results_map.at(res) << ", written " << count << " bytes" << std::endl;
                     break;
                 }
                 case command::actions::SEEK: {
@@ -138,7 +165,15 @@ public:
                     break;
                 }
                 case command::actions::DIR: {
-                    std::cout << "h\n"; //todo: implement here
+                    auto dir = fs->directory();
+                    auto it = std::max_element(dir.begin(), dir.end(), [](auto a, auto b) {
+                        return a.first.size() < b.first.size();
+                    });
+                    auto max_filename_length = (it == dir.end()) ? 0 : it->first.size();
+                    for (auto &file : dir) {
+                        file.first.resize(max_filename_length, ' ');
+                        std::cout << file.first << " | " << file.second << "B\n";
+                    }
                     break;
                 }
                 case command::actions::INIT: {
@@ -175,10 +210,10 @@ public:
                     std::cout << "in <cyl_no> <surf_no> <sect_no> <sect_len> <disk_filename> - initialize file system\n";
                     std::cout << "sv <disk_filename> - save current file system\n";
                     std::cout << "cr <file_name> - create file\n";
-                    std::cout << "de - destroy file\n";             //todo: provide args description
+                    std::cout << "de <file_name> - destroy file\n";
                     std::cout << "op <file_name> - open file\n";
-                    std::cout << "cl - close file\n";               //todo: provide args description
-                    std::cout << "rd - read from file\n";           //todo: provide args description
+                    std::cout << "cl <file_index> - close file\n";
+                    std::cout << "rd <file_index> <number_of_bytes> - read from file\n";
                     std::cout << "wr <file_index> <number_of_bytes> - write to file (writes sequences 0,1,...,255,0,...)\n";
                     std::cout << "sk <file_index> <position> - seek to position in file\n";
                     std::cout << "dr - show directory content\n";
@@ -197,13 +232,13 @@ public:
 
 const std::map<std::string, const shell::command> shell::commands_map = {
         {"cr",   shell::command{shell::command::actions::CREATE,  1}},
-        {"de",   shell::command{shell::command::actions::DESTROY, 0}},  //todo: set required args number
+        {"de",   shell::command{shell::command::actions::DESTROY, 1}},
         {"op",   shell::command{shell::command::actions::OPEN,    1}},
-        {"cl",   shell::command{shell::command::actions::CLOSE,   0}},  //todo: set required args number
-        {"rd",   shell::command{shell::command::actions::READ,    0}},  //todo: set required args number
+        {"cl",   shell::command{shell::command::actions::CLOSE,   1}},
+        {"rd",   shell::command{shell::command::actions::READ,    2}},
         {"wr",   shell::command{shell::command::actions::WRITE,   2}},
         {"sk",   shell::command{shell::command::actions::SEEK,    2}},
-        {"dr",   shell::command{shell::command::actions::DIR,     0}},  //todo: set required args number
+        {"dr",   shell::command{shell::command::actions::DIR,     0}},
         {"in",   shell::command{shell::command::actions::INIT,    5}},
         {"sv",   shell::command{shell::command::actions::SAVE,    0, 1}},
         {"help", shell::command{shell::command::actions::HELP,    0}},
