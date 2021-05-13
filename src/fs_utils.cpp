@@ -17,11 +17,10 @@ namespace lab_fs {
             return nullptr;
         }
 
-        std::size_t length = 0;
+        auto length = std::to_integer<std::size_t>(dv[offset++]);
         std::array<std::size_t, constraints::max_blocks_per_file> occupied_blocks{};
-        for (unsigned i = 0; i < constraints::bytes_for_file_length; i++, offset++) {
-            length <<= 8;
-            length += std::to_integer<std::size_t>(dv[offset]);
+        for (unsigned i = 1; i < constraints::bytes_for_file_length; i++, offset++) {
+            length += (std::to_integer<std::size_t>(dv[offset]) << 8);
         }
         for (unsigned i = 0; i < constraints::max_blocks_per_file; i++, offset++) {
             occupied_blocks[i] = std::to_integer<std::size_t>(dv[offset]);

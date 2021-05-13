@@ -86,7 +86,11 @@ namespace lab_fs {
         if (file.is_open()) {
             result = RESTORED;
             for (std::size_t i = 0; i < blocks_no; i++) {
-                file.read(reinterpret_cast<char *>(disk[i].data()), section_length);
+                char *char_data = new char[section_length];
+                file.read(char_data, section_length);
+                for (std::size_t j = 0; j < section_length; j++) {
+                    disk[i][j] = std::byte{(std::uint8_t) char_data[j]};
+                }
             }
             //todo: consider meeting end of file?
         } else {
@@ -109,7 +113,7 @@ namespace lab_fs {
         std::vector<std::byte> bitmap_block;
         std::uint8_t x = 0;
         for (std::size_t i = 0, j = 7; i < _bitmap.size(); i++, j--) {
-            x |= _bitmap[i];
+            x |= (bool) _bitmap[i];
             if (j != 0) {
                 x <<= 1;
             } else {
@@ -128,7 +132,7 @@ namespace lab_fs {
         std::vector<std::byte> block(_io.get_block_size());
         for (std::size_t i = 1; i < _io.get_blocks_no(); i++) {
             _io.read_block(i, block.begin());
-            file.write(reinterpret_cast<char *>(bitmap_block.data()), _io.get_block_size());
+            file.write(reinterpret_cast<char *>(block.data()), _io.get_block_size());
         }
     }
 
@@ -392,9 +396,8 @@ namespace lab_fs {
         return {count, SUCCESS};
     }
 
-
     fs_result file_system::close(std::size_t i) {
-        if (i >= _oft.size()) {
+        if (i >= _oft.size() || !_oft[i]) {
             return NOT_FOUND;
         }
         auto oft_entry = _oft[i];
