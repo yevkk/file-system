@@ -17,11 +17,10 @@ namespace lab_fs {
             return nullptr;
         }
 
-        std::size_t length = 0;
+        auto length = std::to_integer<std::size_t>(dv[offset++]);
         std::array<std::size_t, constraints::max_blocks_per_file> occupied_blocks{};
-        for (unsigned i = 0; i < constraints::bytes_for_file_length; i++, offset++) {
-            length <<= 8;
-            length += std::to_integer<std::size_t>(dv[offset]);
+        for (unsigned i = 1; i < constraints::bytes_for_file_length; i++, offset++) {
+            length += (std::to_integer<std::size_t>(dv[offset]) << 8);
         }
         for (unsigned i = 0; i < constraints::max_blocks_per_file; i++, offset++) {
             occupied_blocks[i] = std::to_integer<std::size_t>(dv[offset]);
@@ -139,7 +138,7 @@ namespace lab_fs {
                 if (fs->lseek(0, pos) == SUCCESS) {
                     std::vector<std::byte> container(dir_entry_size);
 
-                    if (fs->read(0, container.begin(), utils::dir_entry::dir_entry_size) == SUCCESS) {
+                    if (fs->read(0, container.begin(), utils::dir_entry::dir_entry_size).first == 0) {
                         return std::optional<dir_entry>{dir_entry(container)};
                     } else {
                         return std::nullopt;
@@ -174,7 +173,9 @@ namespace lab_fs {
     // picks last free space and reads through all to verify there is no same file
     std::pair<std::size_t, fs_result> file_system::take_dir_entry(const std::string &filename) {
         if (!_oft[0]->initialized) {
-            return {0, SUCCESS};
+            if(auto res = initialize_oft_entry(_oft[0], 0); res != SUCCESS) {
+                return {0,res};
+            }
         }
 
         std::size_t i = 0;
@@ -185,7 +186,13 @@ namespace lab_fs {
             // looked through all dir entries and none of them is free
             if (!dire_opt.has_value()) {
                 if (free == -1) {
-                    return {0, NO_SPACE};
+                    // the file is just too big
+                    if( _descriptors_cache[_oft[0]->get_descriptor_index()]->length == _io.get_block_size()* constraints::max_blocks_per_file) {
+                        return {0, NO_SPACE};                       
+                    // all entries were present
+                    } else {
+                        return {i, SUCCESS};
+                    }
                 }
                 return {free, SUCCESS};
             }
@@ -209,7 +216,7 @@ namespace lab_fs {
         std::size_t pos = i * (utils::dir_entry::dir_entry_size);
         if (lseek(0, pos) == SUCCESS) {
             auto data = utils::dir_entry{std::move(filename), std::byte{(std::uint8_t) descriptor_index}}.convert();
-            if (write(0, data) == SUCCESS) {
+            if (write(0, data.begin(), data.size()).second == SUCCESS) {
                 return true;
             } else {
                 return false;

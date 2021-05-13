@@ -1,0 +1,5 @@
+in 1 1 32 256 a.fs
+cr f
+op f
+rd 1 1
+exit
