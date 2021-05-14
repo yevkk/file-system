@@ -1,4 +1,4 @@
-in 1 1 32 256 a.fs
+in 1 1 32 256 f.fs
 cr f
 op f
 rd 1 1
