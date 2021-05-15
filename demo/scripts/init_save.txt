@@ -1,0 +1,16 @@
+in 1 1 32 256 b1.fs
+cr f1
+cr f2
+cr f3
+op f1
+wr 1 10
+op f2
+wr 2 300
+dr
+sv
+in 1 1 32 256 b2.fs
+sv
+in 1 1 32 256 b1.fs
+dr
+sv
+exit

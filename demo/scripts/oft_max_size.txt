@@ -1,4 +1,4 @@
-in 1 1 32 128 a.fs
+in 1 1 32 128 d.fs
 cr f1
 cr f2
 cr f3
@@ -30,5 +30,7 @@ op f12
 op f13
 op f14
 op f15
+op f16
+cl 1
 op f16
 exit
