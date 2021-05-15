@@ -245,6 +245,10 @@ namespace lab_fs {
             file_descriptor empty_descriptor{0, {0, 0, 0}};
             save_descriptor(descriptor_index, &empty_descriptor);
 
+            if (auto code = overwrite_dir_entry(filename); code != SUCCESS) {
+                return code;
+            }
+
             return SUCCESS;
         }
 
@@ -353,6 +357,10 @@ namespace lab_fs {
 
         auto oft_entry = _oft[i];
         auto descriptor = get_descriptor(oft_entry->get_descriptor_index());
+
+        if (!_oft[i] || !descriptor) {
+            return {0, NOT_FOUND};
+        }
 
         std::size_t  bytes_read = 0;
         count = std::min(descriptor->length - oft_entry->current_pos, count);

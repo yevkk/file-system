@@ -6,6 +6,7 @@ op file2
 wr 1 10
 wr 2 10
 cl 1
+dr
 de file1
 dr
 de file2

@@ -282,4 +282,33 @@ namespace lab_fs {
         entry->initialized = false;
     }
 
+    fs_result file_system::overwrite_dir_entry(const std::string &filename) {
+        int dir_entry_index = -1;
+        std::size_t last_index = 0;
+        for (; ; last_index++) {
+            auto entry = utils::dir_entry::read_dir_entry(this, last_index);
+            if (!entry.has_value()) {
+                break;
+            } else if (entry.value().filename == filename) {
+                dir_entry_index = last_index;
+            }
+        }
+
+        if (last_index == 0 || dir_entry_index == -1)
+            return NOT_FOUND;
+        --last_index;
+
+        auto last_entry = utils::dir_entry::read_dir_entry(this, last_index);
+
+        if (!save_dir_entry(dir_entry_index, last_entry->filename, static_cast<size_t>(last_entry->descriptor_index))) {
+            return FAIL;
+        }
+
+        if (!save_dir_entry(last_index, "", 0)) {
+            return FAIL;
+        }
+
+        return SUCCESS;
+    }
+
 } //namespace lab_fs
