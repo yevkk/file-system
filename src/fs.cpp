@@ -210,7 +210,7 @@ namespace lab_fs {
 
         // remove oft entry
         for (int i = 0; i < _oft.size(); ++i) {
-            if (_oft[i]->get_filename() == filename) {
+            if (_oft[i] && _oft[i]->get_filename() == filename) {
                 descriptor_index = (int) _oft[i]->get_descriptor_index();
                 delete _oft[i];
                 _oft.erase(_oft.begin() + i);

@@ -1,0 +1,16 @@
+in 1 2 32 256 a.fs
+cr file2
+cr file1
+op file1
+op file2
+wr 1 10
+wr 2 10
+cl 1
+de file1
+dr
+de file2
+dr
+de file1
+de file3
+dr
+exit
