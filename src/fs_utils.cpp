@@ -138,7 +138,7 @@ namespace lab_fs {
                 if (fs->lseek(0, pos) == SUCCESS) {
                     std::vector<std::byte> container(dir_entry_size);
 
-                    if (fs->read(0, container.begin(), utils::dir_entry::dir_entry_size).second == SUCCESS) {
+                    if (fs->read(0, container.begin(), utils::dir_entry::dir_entry_size).first == utils::dir_entry::dir_entry_size) {
                         return std::optional<dir_entry>{dir_entry(container)};
                     } else {
                         return std::nullopt;
