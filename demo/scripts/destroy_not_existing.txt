@@ -11,6 +11,7 @@ de file1
 dr
 de file2
 dr
+sk 1 0
 de file1
 de file3
 dr

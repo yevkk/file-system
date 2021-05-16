@@ -213,7 +213,7 @@ namespace lab_fs {
             if (_oft[i] && _oft[i]->get_filename() == filename) {
                 descriptor_index = (int) _oft[i]->get_descriptor_index();
                 delete _oft[i];
-                _oft.erase(_oft.begin() + i);
+                _oft[i] = nullptr;
             }
         }
 
@@ -263,6 +263,8 @@ namespace lab_fs {
             return {0, SUCCESS};
         }
         auto ofte = _oft[i];
+        if (!ofte)
+            return {0, NOT_FOUND};
         auto descriptor = _descriptors_cache[ofte->get_descriptor_index()];
         std::size_t pos = ofte->current_pos % _io.get_block_size();
         std::size_t new_pos = pos;
@@ -336,6 +338,9 @@ namespace lab_fs {
         }
 
         auto ofte = _oft[i];
+        if (!ofte)
+            return NOT_FOUND;
+
         auto descriptor = get_descriptor(ofte->get_descriptor_index());
         if (pos > descriptor->length) {
             return INVALID_POS;
