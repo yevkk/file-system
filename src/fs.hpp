@@ -80,6 +80,8 @@ namespace lab_fs {
         auto initialize_file_descriptor(file_descriptor* descriptor, std::size_t block) -> fs_result;
         void save_block(oft_entry* entry, std::size_t block);
 
+        auto overwrite_dir_entry(const std::string& filename) -> fs_result;
+
     public:
         file_system(std::string filename, io &&disk_io);
 

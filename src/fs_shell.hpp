@@ -134,9 +134,16 @@ public:
 
                     std::vector<std::byte> content{count, std::byte{}};
 
-                    auto[bytes_read, code] = fs->read(index, content.begin(), count);
+                    const auto [bytes_read, code] = fs->read(index, content.begin(), count);
 
-                    std::cout << fs_results_map.at(code) << ", read " << count << " bytes" << std::endl;
+                    std::cout << fs_results_map.at(code) << ", read " << bytes_read << " bytes: ";
+                    for (std::size_t i = 0; i < bytes_read; ++i) {
+                        std::cout << std::to_integer<int>(content[i]) << " ";
+                    }
+                    std::cout << std::endl;
+
+                    if (bytes_read != count)
+                        std::cout << "reached end of file" << std::endl;
 
                     break;
                 }

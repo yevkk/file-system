@@ -210,10 +210,10 @@ namespace lab_fs {
 
         // remove oft entry
         for (int i = 0; i < _oft.size(); ++i) {
-            if (_oft[i]->get_filename() == filename) {
+            if (_oft[i] && _oft[i]->get_filename() == filename) {
                 descriptor_index = (int) _oft[i]->get_descriptor_index();
                 delete _oft[i];
-                _oft.erase(_oft.begin() + i);
+                _oft[i] = nullptr;
             }
         }
 
@@ -245,6 +245,10 @@ namespace lab_fs {
             file_descriptor empty_descriptor{0, {0, 0, 0}};
             save_descriptor(descriptor_index, &empty_descriptor);
 
+            if (auto code = overwrite_dir_entry(filename); code != SUCCESS) {
+                return code;
+            }
+
             return SUCCESS;
         }
 
@@ -259,6 +263,8 @@ namespace lab_fs {
             return {0, SUCCESS};
         }
         auto ofte = _oft[i];
+        if (!ofte)
+            return {0, NOT_FOUND};
         auto descriptor = _descriptors_cache[ofte->get_descriptor_index()];
         std::size_t pos = ofte->current_pos % _io.get_block_size();
         std::size_t new_pos = pos;
@@ -332,6 +338,9 @@ namespace lab_fs {
         }
 
         auto ofte = _oft[i];
+        if (!ofte)
+            return NOT_FOUND;
+
         auto descriptor = get_descriptor(ofte->get_descriptor_index());
         if (pos > descriptor->length) {
             return INVALID_POS;
@@ -354,6 +363,11 @@ namespace lab_fs {
         auto oft_entry = _oft[i];
         auto descriptor = get_descriptor(oft_entry->get_descriptor_index());
 
+        if (!_oft[i] || !descriptor) {
+            return {0, NOT_FOUND};
+        }
+
+        std::size_t  bytes_read = 0;
         count = std::min(descriptor->length - oft_entry->current_pos, count);
         while (count > 0) {
             // end of file
@@ -389,11 +403,12 @@ namespace lab_fs {
             }
             
 
-            mem_area = mem_area + n_bytes_to_copy;
+            std::advance(mem_area, n_bytes_to_copy);
             count -= n_bytes_to_copy;
+            bytes_read += n_bytes_to_copy;
         }
 
-        return {count, SUCCESS};
+        return {bytes_read, SUCCESS};
     }
 
     fs_result file_system::close(std::size_t i) {
