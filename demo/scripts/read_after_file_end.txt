@@ -1,4 +1,4 @@
-in 1 2 32 256 a.fs
+in 1 2 32 256 i.fs
 cr f1
 op f1
 wr 1 10

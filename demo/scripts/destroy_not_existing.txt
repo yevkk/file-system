@@ -1,4 +1,4 @@
-in 1 2 32 256 a.fs
+in 1 2 32 256 h.fs
 cr file2
 cr file1
 op file1
