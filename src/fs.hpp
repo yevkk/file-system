@@ -74,11 +74,13 @@ namespace lab_fs {
         auto get_descriptor_index_from_dir_entry(const std::string& filename) -> int;
         auto take_dir_entry(const std::string& filename) -> std::pair<std::size_t, fs_result>;
         auto save_dir_entry(std::size_t i, std::string filename, std::size_t descriptor_index) -> bool;
+        auto overwrite_dir_entry(const std::string& filename) -> fs_result;
         auto allocate_block(file_descriptor *descriptor, std::size_t block_index) -> bool;
 
         auto initialize_oft_entry(oft_entry* entry, std::size_t block) -> fs_result;
         auto initialize_file_descriptor(file_descriptor* descriptor, std::size_t block) -> fs_result;
         void save_block(oft_entry* entry, std::size_t block);
+
 
     public:
         file_system(std::string filename, io &&disk_io);

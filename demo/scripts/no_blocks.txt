@@ -1,4 +1,4 @@
-in 1 1 4 32 a.fs
+in 1 1 4 32 c.fs
 cr file1
 op file1
 wr 1 33
