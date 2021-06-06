@@ -26,6 +26,7 @@ namespace lab_fs {
             _filename{std::move(filename)},
             _descriptor_index{descriptor_index},
             current_pos{0},
+            current_block{0},
             modified{false},
             initialized{false} {}
 
@@ -181,7 +182,7 @@ namespace lab_fs {
         }
 
         if (free_entry == 0 && _oft.size() == constraints::oft_max_size) {
-            return {0, NO_SPACE};
+            return {0, OFT_FULL};
         }
 
         int index;
@@ -273,7 +274,7 @@ namespace lab_fs {
         std::size_t current_block = ofte->current_pos / _io.get_block_size();
 
         if (ofte->current_pos == _io.get_block_size() * constraints::max_blocks_per_file) {
-            return {0, INVALID_POS};
+            return {0, TOO_BIG};
         }
 
         if (auto init_oft_res = initialize_oft_entry(ofte, current_block); init_oft_res != SUCCESS) {
@@ -287,9 +288,9 @@ namespace lab_fs {
                 ofte->modified = true;
                 ofte->current_pos += count - offset;
 
-                if (ofte->current_pos / _io.get_block_size() > current_block) {
+                /* if (ofte->current_pos / _io.get_block_size() > current_block) {
                     save_block(ofte, current_block);
-                }
+                } */
 
                 if (descriptor->length < ofte->current_pos) {
                     descriptor->length = ofte->current_pos;
@@ -305,7 +306,7 @@ namespace lab_fs {
                 offset += part;
                 ofte->current_pos += part;
 
-                save_block(ofte, current_block);
+                /*save_block(ofte, current_block);*/
 
                 // check if there is space to continue
                 if (current_block < constraints::max_blocks_per_file - 1) {
@@ -346,11 +347,11 @@ namespace lab_fs {
             return INVALID_POS;
         }
 
-        std::size_t current_block = ofte->current_pos / _io.get_block_size();
+        /* std::size_t current_block = ofte->current_pos / _io.get_block_size();
         std::size_t new_block = pos / _io.get_block_size();
         if (current_block != new_block && ofte->modified) {
             save_block(ofte, current_block);
-        }
+        } */
         ofte->current_pos = pos;
         return SUCCESS;
     }
@@ -376,7 +377,7 @@ namespace lab_fs {
             }
 
             // init block in oft entry
-            if (!oft_entry->initialized) {
+            if (!oft_entry->initialized || oft_entry->current_block != oft_entry->current_pos / _io.get_block_size()) {
                 const std::size_t block = oft_entry->current_pos / _io.get_block_size();
                 const auto res = initialize_oft_entry(oft_entry, block);
 
@@ -394,13 +395,13 @@ namespace lab_fs {
 
             oft_entry->current_pos += n_bytes_to_copy;
 
-            if(oft_entry->current_pos % _io.get_block_size() == 0) {
+            /* if(oft_entry->current_pos % _io.get_block_size() == 0) {
                 if (oft_entry->modified) {
                     save_block(oft_entry, oft_entry->current_pos / _io.get_block_size() - 1);
                 } else {
                     oft_entry->initialized = false;
                 }
-            }
+            } */
             
 
             std::advance(mem_area, n_bytes_to_copy);
