@@ -237,28 +237,39 @@ namespace lab_fs {
         return false;
     }
 
+    // the only function that explicitly changes current block 
     auto file_system::initialize_oft_entry(oft_entry* oft, std::size_t block) -> fs_result {
         auto descriptor = _descriptors_cache[oft->get_descriptor_index()];
 
-        if (!oft->initialized) {
-            oft->buffer = std::vector<std::byte>(_io.get_block_size(), std::byte{0});
+        if (!oft->initialized || oft->current_block != block) {
             if (descriptor->is_initialized()) {
                 if (descriptor->occupied_blocks[block] != 0) {
+                    if (oft->modified) {
+                        save_block(oft, oft->current_block);
+                    }
                     _io.read_block(descriptor->occupied_blocks[block], oft->buffer.begin());
-                    oft->modified = false;
+                    oft->modified = false;                   
                 } else {
                     if(!allocate_block(descriptor, block)) {
-                        return NO_SPACE;
+                        return NO_BLOCK;
+                    }
+
+                    // doesn't save if there was an error
+                    if (oft->modified) {
+                        save_block(oft, oft->current_block);
                     }
                     save_descriptor(oft->get_descriptor_index(), descriptor);
+                    oft->buffer = std::vector<std::byte>(_io.get_block_size(), std::byte{0});
                 }
             } else {
                 if (auto res = initialize_file_descriptor(descriptor, block); res != SUCCESS) {
                     save_descriptor(oft->get_descriptor_index(), descriptor);
                     return res;
                 }
+                oft->buffer = std::vector<std::byte>(_io.get_block_size(), std::byte{0});
             }
             oft->initialized = true;
+            oft->current_block = block;
         }
 
         return SUCCESS;
@@ -270,7 +281,7 @@ namespace lab_fs {
                 descriptor->occupied_blocks[i] = 0;
             }
         } else {
-            return NO_SPACE;
+            return NO_BLOCK;
         }
         return SUCCESS;
     }
